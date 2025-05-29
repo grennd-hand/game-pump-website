@@ -142,7 +142,7 @@ UserSchema.index({ totalVotes: -1 });
 UserSchema.index({ totalTokens: -1 });
 UserSchema.index({ level: -1, experience: -1 });
 UserSchema.index({ 'dailyCheckin.lastCheckinDate': 1 });
-UserSchema.index({ inviteCode: 1 });
+// UserSchema.index({ inviteCode: 1 }); // 重复索引，unique: true已自动创建
 UserSchema.index({ invitedBy: 1 });
 
 // 生成邀请码的静态方法

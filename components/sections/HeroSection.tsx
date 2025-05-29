@@ -199,12 +199,21 @@ export default function HeroSection() {
 
   // 动态统计数据
   const getStatsData = () => {
-    if (!stats || !votingStats) {
+    // 添加调试日志
+    console.log('🎮 HeroSection统计数据状态:', {
+      stats: !!stats,
+      votingStats: !!votingStats,
+      statsData: stats,
+      votingStatsData: votingStats
+    });
+
+    // 优先显示投票数据，即使Token统计未加载
+    if (!votingStats) {
       return [
         { label: statsLabelsMap[lang].totalVotes, value: "...", color: "text-retro-yellow" },
         { label: statsLabelsMap[lang].timeLeft, value: "...", color: "text-retro-cyan" },
         { label: statsLabelsMap[lang].totalParticipants, value: "...", color: "text-retro-green" },
-        { label: statsLabelsMap[lang].totalTokens, value: "...", color: "text-retro-magenta" },
+        { label: statsLabelsMap[lang].totalTokens, value: stats ? formatNumber(stats.totalTokens) : "...", color: "text-retro-magenta" },
       ]
     }
 
@@ -226,7 +235,7 @@ export default function HeroSection() {
       },
       { 
         label: statsLabelsMap[lang].totalTokens, 
-        value: formatNumber(stats.totalTokens), 
+        value: stats ? formatNumber(stats.totalTokens) : "0", 
         color: "text-retro-magenta" 
       },
     ]

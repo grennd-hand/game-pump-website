@@ -157,7 +157,7 @@ const VotingRoundSchema = new Schema<IVotingRound>({
 });
 
 // 创建索引
-VotingRoundSchema.index({ roundNumber: 1 });
+// VotingRoundSchema.index({ roundNumber: 1 }); // 重复索引，unique: true已自动创建
 VotingRoundSchema.index({ status: 1 });
 VotingRoundSchema.index({ startDate: 1, endDate: 1 });
 
