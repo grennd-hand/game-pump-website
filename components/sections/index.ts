@@ -1,0 +1,8 @@
+export { default as HeroSection } from './HeroSection'
+export { default as VotingSection } from './VotingSection'
+export { default as TokenomicsSection } from './TokenomicsSection'
+export { default as RoadmapSection } from './RoadmapSection'
+export { default as CommunitySection } from './CommunitySection'
+export { default as LeaderboardSection } from './LeaderboardSection'
+export { default as EnhancedLeaderboardSection } from './EnhancedLeaderboardSection'
+export { default as WhitepaperSection } from './WhitepaperSection'

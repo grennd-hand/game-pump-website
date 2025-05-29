@@ -1,0 +1,46 @@
+{
+  "name": "game-pump-website",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:init": "node scripts/init-db.js",
+    "db:reset": "node scripts/init-db.js"
+  },
+  "dependencies": {
+    "@okxweb3/coin-solana": "^1.1.0",
+    "@solana/wallet-adapter-base": "^0.9.23",
+    "@solana/wallet-adapter-react": "^0.15.35",
+    "@solana/wallet-adapter-react-ui": "^0.9.35",
+    "@solana/wallet-adapter-wallets": "^0.19.32",
+    "@solana/web3.js": "^1.87.6",
+    "@swc/helpers": "^0.5.17",
+    "@vercel/speed-insights": "^1.2.0",
+    "clsx": "^2.0.0",
+    "dotenv": "^16.5.0",
+    "framer-motion": "^10.16.4",
+    "lucide-react": "^0.292.0",
+    "mongodb": "^6.3.0",
+    "mongoose": "^8.0.3",
+    "next": "14.0.0",
+    "pino-pretty": "^13.0.0",
+    "react": "^18",
+    "react-dom": "^18",
+    "swr": "^2.3.3",
+    "use-sync-external-store": "^1.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "autoprefixer": "^10.0.1",
+    "eslint": "^8",
+    "eslint-config-next": "14.0.0",
+    "postcss": "^8",
+    "tailwindcss": "^3.3.0",
+    "typescript": "^5"
+  }
+}

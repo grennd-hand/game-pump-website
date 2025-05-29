@@ -1,0 +1,21 @@
+/* 隐藏Next.js开发环境错误提示 - 精确定位，不影响钱包组件 */
+
+/* 仅隐藏Next.js开发环境的错误提示 */
+[data-nextjs-toast-errors] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* 仅隐藏左下角红色错误提示框 - 更精确的选择器 */
+div[style*="position: fixed"][style*="bottom: 16px"][style*="left: 16px"][style*="background-color: rgb(254, 202, 202)"],
+div[style*="position:fixed"][style*="bottom:16px"][style*="left:16px"][style*="background-color:rgb(254,202,202)"] {
+  display: none !important;
+}
+
+/* 隐藏包含"1 error"的Next.js错误提示 */
+div[style*="position: fixed"][style*="color: rgb(239, 68, 68)"]:has-text("1 error"),
+div[style*="position:fixed"][style*="color:rgb(239,68,68)"]:has-text("1 error") {
+  display: none !important;
+} 
