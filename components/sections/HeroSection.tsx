@@ -7,6 +7,7 @@ import { useStats } from '@/hooks/useStats'
 import { useWalletConnect, useUserDataSync } from '@/hooks/useWalletConnect'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { useCheckin } from '@/hooks/useCheckin'
+import { useVotingStats } from '@/hooks/useVotingStats'
 
 interface Particle {
   id: number
@@ -21,6 +22,7 @@ interface Particle {
 export default function HeroSection() {
   const { lang } = useLanguage()
   const { stats } = useStats()
+  const { stats: votingStats } = useVotingStats()
   const { user, refreshUser, isConnected, loading: walletLoading } = useWalletConnect()
   const { connected, publicKey } = useWallet()
   const { handleCheckin, checking } = useCheckin()
@@ -153,27 +155,27 @@ export default function HeroSection() {
   // 统计数据国际化标签
   const statsLabelsMap = {
     en: {
-      activeUsers: "Total Users",
-      totalVotes: "Active Tokens", 
-      totalMarketCap: "Total Votes",
+      totalVotes: "Total Votes",
+      totalParticipants: "Players", 
+      timeLeft: "Time Left",
       totalTokens: "Total Tokens"
     },
     zh: {
-      activeUsers: "总用户数",
-      totalVotes: "活跃代币",
-      totalMarketCap: "总投票数",
+      totalVotes: "总投票数",
+      totalParticipants: "参与玩家",
+      timeLeft: "投票倒计时",
       totalTokens: "代币总数"
     },
     ja: {
-      activeUsers: "総ユーザー数",
-      totalVotes: "アクティブトークン",
-      totalMarketCap: "総投票数",
+      totalVotes: "総投票数",
+      totalParticipants: "プレイヤー",
+      timeLeft: "残り時間",
       totalTokens: "総トークン数"
     },
     ko: {
-      activeUsers: "총 사용자 수",
-      totalVotes: "활성 토큰",
-      totalMarketCap: "총 투표 수",
+      totalVotes: "총 투표수",
+      totalParticipants: "플레이어",
+      timeLeft: "남은 시간",
       totalTokens: "총 토큰 수"
     }
   }
@@ -188,32 +190,39 @@ export default function HeroSection() {
     return num.toString()
   }
 
+  // 格式化时间显示
+  const formatTimeLeft = (timeLeft: { hours: number; minutes: number; seconds: number } | null) => {
+    if (!timeLeft) return '已结束'
+    const { hours, minutes, seconds } = timeLeft
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+  }
+
   // 动态统计数据
   const getStatsData = () => {
-    if (!stats) {
+    if (!stats || !votingStats) {
       return [
-        { label: statsLabelsMap[lang].activeUsers, value: "...", color: "text-retro-green" },
-        { label: statsLabelsMap[lang].totalVotes, value: "...", color: "text-retro-cyan" },
-        { label: statsLabelsMap[lang].totalMarketCap, value: "...", color: "text-retro-yellow" },
+        { label: statsLabelsMap[lang].totalVotes, value: "...", color: "text-retro-yellow" },
+        { label: statsLabelsMap[lang].timeLeft, value: "...", color: "text-retro-cyan" },
+        { label: statsLabelsMap[lang].totalParticipants, value: "...", color: "text-retro-green" },
         { label: statsLabelsMap[lang].totalTokens, value: "...", color: "text-retro-magenta" },
       ]
     }
 
     return [
       { 
-        label: statsLabelsMap[lang].activeUsers, 
-        value: formatNumber(stats.totalUsers), 
-        color: "text-retro-green" 
+        label: statsLabelsMap[lang].totalVotes, 
+        value: formatNumber(votingStats.totalVotes),
+        color: "text-retro-yellow" 
       },
       { 
-        label: statsLabelsMap[lang].totalVotes, 
-        value: formatNumber(stats.activeTokens), 
+        label: statsLabelsMap[lang].timeLeft, 
+        value: formatTimeLeft(votingStats.timeLeft),
         color: "text-retro-cyan" 
       },
       { 
-        label: statsLabelsMap[lang].totalMarketCap, 
-        value: formatNumber(stats.totalVotes),
-        color: "text-retro-yellow" 
+        label: statsLabelsMap[lang].totalParticipants, 
+        value: formatNumber(votingStats.totalParticipants), 
+        color: "text-retro-green" 
       },
       { 
         label: statsLabelsMap[lang].totalTokens, 
