@@ -1,9 +1,10 @@
 import mongoose from 'mongoose';
 
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://xiaomi:Csm20050615@cluster0.twbyzws.mongodb.net/test?retryWrites=true&w=majority&appName=Cluster0";
+// 从环境变量读取数据库连接字符串，不再硬编码
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/game-pump-local';
 
 if (!MONGODB_URI) {
-  throw new Error('请在环境变量中定义MONGODB_URI');
+  throw new Error('请在环境变量中定义MONGODB_URI - 数据库连接字符串未设置');
 }
 
 /**
@@ -30,6 +31,10 @@ async function dbConnect() {
   }
 
   if (!cached.promise) {
+    if (!MONGODB_URI) {
+      throw new Error('MONGODB_URI环境变量未设置');
+    }
+    
     cached.promise = mongoose.connect(MONGODB_URI, {
       bufferCommands: false,
     });

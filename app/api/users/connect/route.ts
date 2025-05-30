@@ -16,6 +16,53 @@ const connection = new Connection(RPC_ENDPOINTS[0], {
   confirmTransactionInitialTimeout: 60000,
 });
 
+// 随机用户名生成器
+const generateRandomUsername = async (): Promise<string> => {
+  // 用户名前缀词汇
+  const prefixes = [
+    'Gaming', 'Retro', 'Pixel', 'Arcade', 'Classic', 'Legend', 'Master', 'Pro', 'Epic', 'Super',
+    'Cyber', 'Neon', 'Digital', 'Virtual', 'Mystic', 'Shadow', 'Thunder', 'Lightning', 'Fire', 'Ice',
+    'Dark', 'Light', 'Star', 'Moon', 'Sun', 'Sky', 'Ocean', 'Storm', 'Wind', 'Earth',
+    'Gold', 'Silver', 'Diamond', 'Crystal', 'Ruby', 'Emerald', 'Sapphire', 'Phoenix', 'Dragon', 'Tiger',
+    'Eagle', 'Wolf', 'Lion', 'Bear', 'Shark', 'Falcon', 'Hawk', 'Fox', 'Panda', 'Ninja'
+  ];
+
+  // 用户名后缀词汇
+  const suffixes = [
+    'Gamer', 'Player', 'Hero', 'Champion', 'Winner', 'Master', 'Legend', 'Warrior', 'Fighter', 'Hunter',
+    'Slayer', 'Rider', 'Walker', 'Runner', 'Jumper', 'Flyer', 'Dancer', 'Singer', 'Dreamer', 'Creator',
+    'Builder', 'Maker', 'Finder', 'Seeker', 'Explorer', 'Adventurer', 'Traveler', 'Wanderer', 'Guardian', 'Protector',
+    'Defender', 'Striker', 'Shooter', 'Sniper', 'Archer', 'Mage', 'Wizard', 'Sorcerer', 'Knight', 'Paladin',
+    'Rogue', 'Assassin', 'Thief', 'Scout', 'Ranger', 'Monk', 'Priest', 'Shaman', 'Druid', 'Bard'
+  ];
+
+  const maxAttempts = 50;
+  let attempts = 0;
+
+  while (attempts < maxAttempts) {
+    // 随机选择前缀和后缀
+    const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+    const suffix = suffixes[Math.floor(Math.random() * suffixes.length)];
+    
+    // 生成随机数字 (1-999)
+    const randomNumber = Math.floor(Math.random() * 999) + 1;
+    
+    const username = `${prefix}${suffix}${randomNumber}`;
+
+    // 检查用户名是否已存在
+    const existingUser = await User.findOne({ username });
+    if (!existingUser) {
+      return username;
+    }
+
+    attempts++;
+  }
+
+  // 如果50次尝试后仍未找到唯一用户名，使用时间戳作为后备
+  const timestamp = Date.now().toString().slice(-8);
+  return `Player${timestamp}`;
+};
+
 // 钱包连接API
 export async function POST(request: NextRequest) {
   try {
@@ -111,16 +158,15 @@ export async function POST(request: NextRequest) {
           username: `Player_${walletAddress.slice(-6)}`,
           totalVotes: 0,
           totalTokens: 0,
-          availableVotes: initialVotes,
-          solBalance: solBalance,
+          availableVotes: 0,
+          solBalance: solBalance || 0,
           level: 1,
-          experience: 0,
           achievements: [],
           preferences: {
             language: 'zh',
             notifications: true
           },
-          inviteCode,
+          inviteCode: inviteCode,
           dailyCheckin: {
             consecutiveDays: 0,
             totalCheckins: 0
@@ -219,7 +265,7 @@ export async function POST(request: NextRequest) {
         // 如果余额检查失败，保留原有投票权但记录问题
         console.log('⚠️  现有用户余额检查失败，保留原投票权');
       } else {
-        // 根据实际余额重新评估投票权，但保护签到获得的票数
+        // 对于现有用户，不重新分配票数，只验证余额状态
         const minBalance = 0; // 测试环境设为0，方便测试
         
         // 检查用户是否今天签到过，如果签到过则保护签到票数
@@ -228,21 +274,16 @@ export async function POST(request: NextRequest) {
         const hasCheckedInToday = lastCheckin && today.toDateString() === lastCheckin.toDateString();
         
         if (solBalance >= minBalance) {
-          // 余额充足，确保有基础3票投票权
-          const baseVotes = 3;
-          if (user.availableVotes < baseVotes) {
-            user.availableVotes = baseVotes;
-            console.log(`✅ 用户余额${solBalance} SOL >= ${minBalance}，分配${baseVotes}票`);
-          } else {
-            console.log(`✅ 用户余额${solBalance} SOL >= ${minBalance}，保持${user.availableVotes}票`);
-          }
+          // 余额充足，保持现有票数不变
+          console.log(`✅ 用户余额${solBalance} SOL >= ${minBalance}，保持${user.availableVotes}票`);
         } else {
           // 余额不足，但保护签到获得的票数
           if (hasCheckedInToday && user.availableVotes > 0) {
             console.log(`🎁 用户余额${solBalance} SOL < ${minBalance}，但保护签到票数${user.availableVotes}票`);
           } else if (user.availableVotes > 0) {
-            user.availableVotes = 0;
-            console.log(`❌ 用户余额${solBalance} SOL < ${minBalance}，清零投票权`);
+            // 注释掉清零逻辑，保留用户现有票数
+            // user.availableVotes = 0;
+            console.log(`⚠️  用户余额${solBalance} SOL < ${minBalance}，但保持现有票数${user.availableVotes}票`);
           } else {
             console.log(`❌ 用户余额${solBalance} SOL < ${minBalance}，无投票权`);
           }
@@ -278,7 +319,6 @@ export async function POST(request: NextRequest) {
         availableVotes: user.availableVotes,
         solBalance: user.solBalance,
         level: user.level,
-        experience: user.experience,
         achievements: user.achievements,
         preferences: user.preferences,
         joinedAt: user.joinedAt,

@@ -43,7 +43,7 @@ export default function InviteSystem() {
           totalRewards: 0,
           invitedUsers: []
         },
-        shareUrl: `${window.location.origin}?invite=CONNECT_WALLET`
+        shareUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}?invite=CONNECT_WALLET`
       });
     }
   }, [connected, publicKey]);
@@ -74,7 +74,7 @@ export default function InviteSystem() {
             totalRewards: 0,
             invitedUsers: []
           },
-          shareUrl: `${window.location.origin}?invite=${publicKey.toString().slice(0, 8).toUpperCase()}`
+          shareUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}?invite=${publicKey.toString().slice(0, 8).toUpperCase()}`
         });
       }
     } catch (error) {
@@ -87,7 +87,7 @@ export default function InviteSystem() {
           totalRewards: 0,
           invitedUsers: []
         },
-        shareUrl: `${window.location.origin}?invite=${publicKey.toString().slice(0, 8).toUpperCase()}`
+        shareUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}?invite=${publicKey.toString().slice(0, 8).toUpperCase()}`
       });
     } finally {
       setLoading(false);
@@ -96,7 +96,7 @@ export default function InviteSystem() {
 
   // 复制邀请链接
   const copyInviteLink = async () => {
-    const shareUrl = inviteInfo?.shareUrl || `${window.location.origin}?invite=CONNECT_WALLET`;
+    const shareUrl = inviteInfo?.shareUrl || `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}?invite=CONNECT_WALLET`;
     
     try {
       await navigator.clipboard.writeText(shareUrl);
@@ -176,7 +176,7 @@ export default function InviteSystem() {
         <div className="mt-6 p-4 bg-gray-800 rounded-lg border border-yellow-400/30">
           <h4 className="text-yellow-400 font-pixel mb-2">奖励规则</h4>
           <div className="text-sm text-gray-300 space-y-1">
-            <div>• 直接邀请: 每人奖励 3 票 (需要被邀请者余额≥0.1 SOL)</div>
+            <div>• 直接邀请: 每人奖励 3 票 (被邀请者余额≥0 SOL即可)</div>
             <div>• 邀请奖励: 立即到账，可用于投票</div>
             <div>• 经验奖励: 有效邀请+30 EXP，无效邀请+10 EXP</div>
           </div>

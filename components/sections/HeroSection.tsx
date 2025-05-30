@@ -1,13 +1,14 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, memo, useMemo, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useStats } from '@/hooks/useStats'
-import { useWalletConnect, useUserDataSync } from '@/hooks/useWalletConnect'
+import { useUser } from '@/contexts/UserContext'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { useCheckin } from '@/hooks/useCheckin'
 import { useVotingStats } from '@/hooks/useVotingStats'
+import { useVotingRounds } from '@/hooks/useVotingRounds'
 
 interface Particle {
   id: number
@@ -19,38 +20,63 @@ interface Particle {
   delay: number
 }
 
-export default function HeroSection() {
+export default memo(function HeroSection() {
   const { lang } = useLanguage()
   const { stats } = useStats()
-  const { stats: votingStats } = useVotingStats()
-  const { user, refreshUser, isConnected, loading: walletLoading } = useWalletConnect()
+  const { stats: votingStats, refetch: refetchVotingStats } = useVotingStats()
+  const { currentRound, loading: roundsLoading, refetch: refetchRounds } = useVotingRounds()
+  const { user: currentUser, loading: userLoading, refetch: refreshUser } = useUser()
   const { connected, publicKey } = useWallet()
   const { handleCheckin, checking } = useCheckin()
-  const syncedUser = useUserDataSync() // 监听全局用户数据更新
   
-  // 获取最新的用户数据，优先使用同步的数据
-  const currentUser = syncedUser || user;
   const [isClient, setIsClient] = useState(false)
   const [particles, setParticles] = useState<Particle[]>([])
   const [currentGameIndex, setCurrentGameIndex] = useState(0)
   const [typedText, setTypedText] = useState('')
   
-  // 使用 walletLoading 状态替代本地的 userLoading
-  const userLoading = walletLoading
+  // 自动滚动相关状态
+  const [scrollPosition, setScrollPosition] = useState(0)
+  const [isPaused, setIsPaused] = useState(false)
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null)
   
+  // 组件初始化时刷新投票轮次数据
+  useEffect(() => {
+    console.log('🎮 HeroSection: 组件初始化，刷新投票轮次数据');
+    refetchRounds();
+  }, [refetchRounds]);
+
+  // 监听投票轮次数据变化
+  useEffect(() => {
+    console.log('🎮 HeroSection: 投票轮次数据变化', {
+      hasCurrentRound: !!currentRound,
+      roundId: currentRound?._id,
+      gamesCount: currentRound?.games?.length || 0,
+      gamesData: currentRound?.games?.map(g => ({ name: g.name, icon: g.icon, votes: g.votes })) || []
+    });
+  }, [currentRound]);
+
   // 减少日志频率，只在关键状态变化时输出
   useEffect(() => {
     console.log('🎮 HeroSection 用户状态更新:', {
       connected,
-      user: !!user,
-      syncedUser: !!syncedUser, 
       currentUser: !!currentUser,
       userLoading,
       availableVotes: currentUser?.availableVotes
     });
-  }, [connected, !!user, !!syncedUser, userLoading]); // 只监听关键状态变化
+  }, [connected, !!currentUser, userLoading]); // 只监听关键状态变化
 
-  // 使用同步用户数据的签到检查函数
+  // 监听用户数据变化，同时刷新统计数据
+  useEffect(() => {
+    if (currentUser) {
+      console.log('🔄 用户数据已加载，刷新统计数据...');
+      // 延迟一点点时间确保数据库已更新
+      setTimeout(() => {
+        refetchVotingStats();
+      }, 100);
+    }
+  }, [currentUser, refetchVotingStats]);
+
+  // 使用用户数据的签到检查函数
   const canCheckinToday = () => {
     if (!currentUser || !(currentUser as any).dailyCheckin) return true;
     
@@ -87,6 +113,12 @@ export default function HeroSection() {
     ja: "コミュニティを見る",
     ko: "커뮤니티 보기"
   }
+  const btnTasksMap = {
+    en: "Social Tasks",
+    zh: "社交任务",
+    ja: "ソーシャルタスク",
+    ko: "소셜 작업"
+  }
   const btnCheckinMap = {
     en: "Daily Check-in",
     zh: "每日签到",
@@ -114,14 +146,14 @@ export default function HeroSection() {
   
   // 游戏展示标题国际化
   const gameDisplayMap = {
-    en: "Showcasing Classic Games:",
-    zh: "正在展示经典游戏:",
-    ja: "クラシックゲームを紹介:",
-    ko: "클래식 게임 전시:"
+    en: "Current Voting Games:",
+    zh: "当前投票游戏:",
+    ja: "現在投票中のゲーム:",
+    ko: "현재 투표 중인 게임:"
   }
   
-  // 游戏列表国际化
-  const classicGamesMap = {
+  // 备用静态游戏列表（当没有投票轮次时使用）
+  const fallbackClassicGamesMap = {
     en: [
       { name: "Super Mario", icon: "🍄", color: "text-red-400" },
       { name: "Tetris", icon: "🟦", color: "text-blue-400" },
@@ -151,30 +183,60 @@ export default function HeroSection() {
       { name: "젤다의 전설", icon: "🗡️", color: "text-emerald-400" },
     ]
   }
+
+  // 动态获取游戏数据：优先使用投票轮次中的游戏，否则使用备用列表
+  const getClassicGames = useMemo(() => {
+    if (currentRound && currentRound.games && currentRound.games.length > 0) {
+      console.log('🎮 HeroSection: 使用投票轮次中的游戏数据', {
+        roundId: currentRound._id,
+        totalGames: currentRound.games.length,
+        games: currentRound.games.map(g => g.name)
+      });
+      
+      // 使用投票轮次中的游戏数据
+      const colors = [
+        "text-red-400", "text-blue-400", "text-green-400", 
+        "text-yellow-400", "text-emerald-400", "text-purple-400",
+        "text-cyan-400", "text-orange-400", "text-pink-400", "text-indigo-400"
+      ];
+      
+      return currentRound.games.map((game: any, index: number) => ({
+        name: game.nameTranslations?.[lang] || game.name,
+        icon: game.icon || "🎮",
+        color: colors[index % colors.length]
+      }));
+    }
+    
+    console.log('🎮 HeroSection: 使用备用静态游戏列表');
+    // 使用备用静态游戏列表
+    return fallbackClassicGamesMap[lang];
+  }, [currentRound, lang]);
+
+  const classicGames = getClassicGames;
   
   // 统计数据国际化标签
   const statsLabelsMap = {
     en: {
       totalVotes: "Total Votes",
-      totalParticipants: "Players", 
+      totalParticipants: "Users", 
       timeLeft: "Time Left",
       totalTokens: "Total Tokens"
     },
     zh: {
       totalVotes: "总投票数",
-      totalParticipants: "参与玩家",
+      totalParticipants: "用户数",
       timeLeft: "投票倒计时",
       totalTokens: "代币总数"
     },
     ja: {
       totalVotes: "総投票数",
-      totalParticipants: "プレイヤー",
+      totalParticipants: "ユーザー数",
       timeLeft: "残り時間",
       totalTokens: "総トークン数"
     },
     ko: {
       totalVotes: "총 투표수",
-      totalParticipants: "플레이어",
+      totalParticipants: "사용자 수",
       timeLeft: "남은 시간",
       totalTokens: "총 토큰 수"
     }
@@ -210,18 +272,18 @@ export default function HeroSection() {
     // 优先显示投票数据，即使Token统计未加载
     if (!votingStats) {
       return [
-        { label: statsLabelsMap[lang].totalVotes, value: "...", color: "text-retro-yellow" },
-        { label: statsLabelsMap[lang].timeLeft, value: "...", color: "text-retro-cyan" },
         { label: statsLabelsMap[lang].totalParticipants, value: "...", color: "text-retro-green" },
+        { label: statsLabelsMap[lang].timeLeft, value: "...", color: "text-retro-cyan" },
+        { label: statsLabelsMap[lang].totalVotes, value: "...", color: "text-retro-yellow" },
         { label: statsLabelsMap[lang].totalTokens, value: stats ? formatNumber(stats.totalTokens) : "...", color: "text-retro-magenta" },
       ]
     }
 
     return [
       { 
-        label: statsLabelsMap[lang].totalVotes, 
-        value: formatNumber(votingStats.totalVotes),
-        color: "text-retro-yellow" 
+        label: statsLabelsMap[lang].totalParticipants, 
+        value: formatNumber(votingStats.totalParticipants), 
+        color: "text-retro-green" 
       },
       { 
         label: statsLabelsMap[lang].timeLeft, 
@@ -229,9 +291,9 @@ export default function HeroSection() {
         color: "text-retro-cyan" 
       },
       { 
-        label: statsLabelsMap[lang].totalParticipants, 
-        value: formatNumber(votingStats.totalParticipants), 
-        color: "text-retro-green" 
+        label: statsLabelsMap[lang].totalVotes, 
+        value: formatNumber(votingStats.totalVotes),
+        color: "text-retro-yellow" 
       },
       { 
         label: statsLabelsMap[lang].totalTokens, 
@@ -244,7 +306,6 @@ export default function HeroSection() {
 
 
   const fullText = fullTextMap[lang]
-  const classicGames = classicGamesMap[lang]
 
   useEffect(() => {
     setIsClient(true)
@@ -261,22 +322,6 @@ export default function HeroSection() {
     setParticles(particleData)
   }, [])
 
-  // 监听钱包连接状态，自动获取用户数据
-  useEffect(() => {
-    console.log('🔍 HeroSection钱包状态检查:', {
-      connected,
-      hasUser: !!currentUser,
-      userLoading,
-      isConnected
-    });
-    
-    // 钱包已连接但没有用户数据且不在加载中时，尝试获取用户数据
-    if (connected && !currentUser && !userLoading) {
-      console.log('🔗 HeroSection检测到钱包已连接，获取用户数据...');
-      refreshUser();
-    }
-  }, [connected, currentUser, userLoading, isConnected]) // 移除 refreshUser 依赖避免循环
-
   // 打字机效果
   useEffect(() => {
     setTypedText('') // 重置文本
@@ -291,15 +336,17 @@ export default function HeroSection() {
     }, 150)
 
     return () => clearInterval(typingTimer)
-  }, [fullText, lang]) // 添加 fullText 和 lang 依赖
+  }, [fullText]) // 只依赖fullText
 
-  // 游戏轮播效果
+  // 游戏轮播效果 - 只在游戏数量少时启用
   useEffect(() => {
-    const gameTimer = setInterval(() => {
-      setCurrentGameIndex((prev) => (prev + 1) % classicGames.length)
-    }, 2000)
+    if (classicGames.length <= 3) {
+      const gameTimer = setInterval(() => {
+        setCurrentGameIndex((prev) => (prev + 1) % classicGames.length)
+      }, 2000)
 
-    return () => clearInterval(gameTimer)
+      return () => clearInterval(gameTimer)
+    }
   }, [classicGames.length])
 
   // 语言切换时重置游戏索引
@@ -308,9 +355,69 @@ export default function HeroSection() {
   }, [lang])
 
   // 导航到指定页面
-  const navigateToPage = (page: string) => {
+  const navigateToPage = useCallback((page: string) => {
     window.location.href = `/${page}`
-  }
+  }, [])
+
+  // 缓存游戏轮播的渲染逻辑 - 水平滚动展示所有游戏
+  const gameCarousel = useMemo(() => {
+    return classicGames.map((game, index) => {
+      // 从投票轮次中获取游戏的投票数据
+      const gameData = currentRound?.games?.find((g: any) => 
+        (g.nameTranslations?.[lang] || g.name) === game.name
+      );
+      
+      return (
+        <motion.div
+          key={`${game.name}-${lang}-${index}`}
+          initial={{ opacity: 0, scale: 0.8, x: 50 }}
+          animate={{ 
+            opacity: 1,
+            scale: 1,
+            x: 0
+          }}
+          transition={{ 
+            duration: 0.6, 
+            delay: index * 0.1,
+            ease: "easeOut" 
+          }}
+          whileHover={{
+            scale: 1.05,
+            y: -5,
+            transition: { duration: 0.2 }
+          }}
+          className="flex-shrink-0 flex flex-col items-center space-y-3 p-4 w-28 rounded-lg border border-retro-green/20 bg-black/20 backdrop-blur-sm hover:border-retro-green/50 transition-all duration-300 cursor-pointer"
+          onClick={() => navigateToPage('voting')}
+        >
+          <motion.div 
+            className="text-4xl"
+            animate={{
+              y: [0, -5, 0],
+              rotate: [0, 3, -3, 0]
+            }}
+            transition={{
+              duration: 2 + index * 0.2,
+              repeat: Infinity,
+              delay: index * 0.3
+            }}
+          >
+            {game.icon}
+          </motion.div>
+          <div className={`font-pixel text-xs ${game.color} text-center leading-tight`}>
+            {game.name}
+          </div>
+          {gameData && (
+            <div className="text-xs text-gray-400 font-pixel">
+              {gameData.votes || 0} 票
+            </div>
+          )}
+        </motion.div>
+      )
+    })
+  }, [classicGames, lang, currentRound, navigateToPage])
+
+  // 缓存统计数据
+  const statsData = useMemo(() => getStatsData(), [votingStats, stats, lang])
 
   // 每日签到功能
   const onCheckinClick = async () => {
@@ -379,13 +486,48 @@ export default function HeroSection() {
     }
   }
 
+  // 自动滚动逻辑
+  useEffect(() => {
+    if (!classicGames || classicGames.length <= 3 || isPaused) return;
+
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const scrollInterval = setInterval(() => {
+      const containerWidth = container.offsetWidth;
+      const scrollWidth = container.scrollWidth;
+      const maxScroll = scrollWidth - containerWidth;
+
+      setScrollPosition(prev => {
+        const newPosition = prev + 2; // 每次滚动2px，可以调整速度
+        
+        // 如果滚动到末尾，重置到开始
+        if (newPosition >= maxScroll) {
+          return 0;
+        }
+        
+        return newPosition;
+      });
+    }, 50); // 每50ms更新一次位置
+
+    return () => clearInterval(scrollInterval);
+  }, [classicGames, isPaused]);
+
+  // 应用滚动位置
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.scrollLeft = scrollPosition;
+    }
+  }, [scrollPosition]);
+
   return (
-    <section id="home" className="min-h-screen flex items-center justify-center relative pt-32 pb-16">
+    <section id="home" className="min-h-screen flex items-center justify-center relative pt-28 pb-16 md:pt-32 lg:pt-36">
       {/* 动态背景粒子 */}
       <div className="absolute inset-0 overflow-hidden">
         {isClient && particles.map((particle) => (
           <motion.div
-            key={particle.id}
+            key={`particle-${particle.id}`}
             className="absolute w-1 h-1 bg-retro-green"
             style={{
               left: `${particle.x}%`,
@@ -405,7 +547,7 @@ export default function HeroSection() {
         ))}
       </div>
 
-      <div className="max-w-full sm:max-w-3xl md:max-w-6xl mx-auto px-6 text-center relative z-10">
+      <div className="max-w-full sm:max-w-3xl md:max-w-6xl mx-auto px-6 text-center relative z-10 mt-8 sm:mt-12 md:mt-16">
         {/* 主标题 */}
         <motion.div
           initial={{ scale: 0.5, opacity: 0 }}
@@ -437,7 +579,7 @@ export default function HeroSection() {
             <span className="animate-blink">|</span>
           </h2>
           <p className="text-base sm:text-lg md:text-xl text-gray-300 max-w-3xl mx-auto leading-relaxed">
-            {descMap[lang].split('\n').map((line, i) => <span key={i}>{line}<br /></span>)}
+            {descMap[lang].split('\n').map((line, i) => <span key={`desc-${lang}-${i}`}>{line}<br /></span>)}
           </p>
         </motion.div>
 
@@ -448,35 +590,26 @@ export default function HeroSection() {
           transition={{ delay: 1, duration: 0.6 }}
           className="mb-12"
         >
-          <div className="text-sm text-retro-yellow mb-4 font-pixel">{gameDisplayMap[lang]}</div>
-          <div className="relative w-full max-w-2xl mx-auto h-[120px] overflow-hidden">
-            <div className="flex justify-center items-center h-full space-x-8">
-              {classicGames.map((game, index) => {
-                const isCenter = index === currentGameIndex
-                const isLeft = index === (currentGameIndex - 1 + classicGames.length) % classicGames.length
-                const isRight = index === (currentGameIndex + 1) % classicGames.length
-                const isVisible = isCenter || isLeft || isRight
-                
-                return (
-                  <motion.div
-                    key={game.name}
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ 
-                      opacity: isVisible ? (isCenter ? 1 : 0.6) : 0,
-                      scale: isCenter ? 1.2 : 0.8,
-                      x: isLeft ? -120 : isRight ? 120 : 0,
-                      filter: isCenter ? "blur(0px)" : "blur(2px)"
-                    }}
-                    transition={{ duration: 0.6, ease: "easeInOut" }}
-                    className="absolute flex flex-col items-center space-y-2"
-                  >
-                    <div className="text-4xl animate-float">{game.icon}</div>
-                    <div className={`font-pixel text-sm ${game.color}`}>
-                      {game.name}
-                    </div>
-                  </motion.div>
-                )
-              })}
+          <div className="text-sm text-retro-yellow mb-6 font-pixel">{gameDisplayMap[lang]}</div>
+          
+          {/* 水平滚动展示所有游戏 */}
+          <div className="w-full max-w-6xl mx-auto">
+            <div 
+              ref={scrollContainerRef}
+              className="overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+              style={{
+                scrollBehavior: 'smooth'
+              }}
+              onMouseEnter={() => setIsPaused(true)}
+              onMouseLeave={() => setIsPaused(false)}
+            >
+              <div className="flex space-x-4 py-6 px-4 min-w-max">
+                {gameCarousel}
+              </div>
+            </div>
+            <div className="mt-4 text-xs text-gray-400 font-pixel text-center">
+              共 {classicGames.length} 个游戏正在参与投票 • 
+              {classicGames.length > 3 ? '自动滚动播放中（悬停暂停）' : '左右滑动查看更多'}
             </div>
           </div>
         </motion.div>
@@ -514,6 +647,21 @@ export default function HeroSection() {
             onClick={() => navigateToPage('community')}
           >
             📄 {btnCommunityMap[lang]}
+          </motion.button>
+
+          {/* 社交任务按钮 */}
+          <motion.button
+            whileHover={{ 
+              scale: 1.05, 
+              boxShadow: "0 0 30px #FF00FF",
+              backgroundColor: "#FF00FF",
+              color: "#000000"
+            }}
+            whileTap={{ scale: 0.95 }}
+            className="neon-button text-retro-magenta border-retro-magenta w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg"
+            onClick={() => navigateToPage('tasks')}
+          >
+            🎯 {btnTasksMap[lang]}
           </motion.button>
 
           {/* 每日签到按钮 */}
@@ -574,11 +722,7 @@ export default function HeroSection() {
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-400 font-pixel">可用票数:</span>
-                  <span className="text-retro-cyan font-bold text-lg">{currentUser.availableVotes || 0} 票</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-400 font-pixel">经验值:</span>
-                  <span className="text-retro-yellow font-bold">{currentUser.experience || 0} EXP</span>
+                  <span className="text-retro-yellow font-bold">{currentUser.availableVotes || 0} 票</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-400 font-pixel">等级:</span>
@@ -630,8 +774,8 @@ export default function HeroSection() {
           transition={{ delay: 1.6, duration: 0.6 }}
           className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-8"
         >
-          {getStatsData().map((stat, index) => (
-            <div key={stat.label} className="pixel-card p-4">
+          {statsData.map((stat, index) => (
+            <div key={`stat-${stat.label}-${index}`} className="pixel-card p-4">
               <div className={`text-3xl font-bold game-score ${stat.color}`}>
                 {stat.value}
               </div>
@@ -645,4 +789,4 @@ export default function HeroSection() {
       </div>
     </section>
   )
-} 
+})

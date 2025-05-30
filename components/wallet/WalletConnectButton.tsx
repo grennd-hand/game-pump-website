@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useWalletConnect } from '@/hooks/useWalletConnect';
+import { useUser } from '@/contexts/UserContext';
 import { Wallet, Gift } from 'lucide-react';
 import { WalletErrorBoundary } from './WalletErrorBoundary';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
@@ -16,7 +16,7 @@ interface WalletConnectButtonProps {
 
 function WalletConnectButtonInner({ onConnect, className = '' }: WalletConnectButtonProps) {
   const { connected, publicKey, disconnecting } = useWallet();
-  const { user, loading, error, connectUser, isConnected } = useWalletConnect();
+  const { user, loading, error, refetch } = useUser();
   const { setVisible } = useWalletModal();
   const [showInviteInput, setShowInviteInput] = useState(false);
   const [inviteCode, setInviteCode] = useState('');
@@ -35,12 +35,7 @@ function WalletConnectButtonInner({ onConnect, className = '' }: WalletConnectBu
     }
   }, []);
 
-  // 监听钱包连接状态
-  useEffect(() => {
-    if (connected && publicKey && !user && !loading) {
-      connectUser();
-    }
-  }, [connected, publicKey, user, loading, connectUser]);
+  // 钱包连接后用户数据会由UserContext自动处理
 
   // 处理邀请码注册
   const handleInviteRegister = async () => {
@@ -90,7 +85,7 @@ function WalletConnectButtonInner({ onConnect, className = '' }: WalletConnectBu
 
       // 刷新用户数据
       setTimeout(() => {
-        connectUser();
+        refetch();
       }, 1000);
 
     } catch (error) {
@@ -140,8 +135,8 @@ function WalletConnectButtonInner({ onConnect, className = '' }: WalletConnectBu
                   🗳️ {user.availableVotes} 票
                 </span>
               </div>
-              <div className="text-xs text-gray-400 mt-1">
-                Lv.{user.level} | {user.experience} EXP
+              <div className="text-xs text-gray-400">
+                Lv.{user.level} | {user.totalVotes} 票
               </div>
             </div>
           </div>

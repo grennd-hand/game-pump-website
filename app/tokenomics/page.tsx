@@ -3,6 +3,7 @@
 import Header from '@/components/layout/Header'
 import TokenomicsSection from '@/components/sections/TokenomicsSection'
 import PageTransition from '@/components/utils/PageTransition'
+import BackToTop from '@/components/ui/BackToTop'
 import { useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useLanguage } from '@/contexts/LanguageContext'
@@ -157,6 +158,7 @@ export default function TokenomicsPage() {
           </div>
         </div>
         </motion.footer>
+        <BackToTop />
     </PageTransition>
   )
 } 

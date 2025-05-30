@@ -7,6 +7,9 @@ export async function GET(request: NextRequest) {
   try {
     await dbConnect();
     
+    // 获取总用户数
+    const totalUsers = await User.countDocuments();
+    
     // 获取当前活跃的投票轮次
     const currentRound = await VotingRound.findOne({ status: 'active' });
     
@@ -15,21 +18,15 @@ export async function GET(request: NextRequest) {
         success: true,
         stats: {
           totalVotes: 0,
-          totalParticipants: 0,
+          totalParticipants: totalUsers, // 使用总用户数而不是投票参与者数
           timeLeft: null,
           hasActiveRound: false
         }
       });
     }
-    
-    // 获取参与投票的用户数（7天内有投票记录的用户）
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    
-    const activeParticipants = await User.countDocuments({
-      lastActive: { $gte: sevenDaysAgo },
-      totalVotes: { $gt: 0 }
-    });
+
+    // 动态计算真实投票数据
+    const votingStats = calculateRealVotingStats(currentRound);
     
     // 计算剩余时间
     const now = new Date();
@@ -43,12 +40,12 @@ export async function GET(request: NextRequest) {
       const seconds = Math.floor((timeLeftMs % (1000 * 60)) / 1000);
       timeLeft = { hours, minutes, seconds };
     }
-    
+
     return NextResponse.json({
       success: true,
       stats: {
-        totalVotes: currentRound.totalVotes || 0,
-        totalParticipants: activeParticipants,
+        totalVotes: votingStats.totalVotes,
+        totalParticipants: totalUsers, // 使用总用户数而不是投票参与者数
         timeLeft,
         hasActiveRound: true,
         roundId: currentRound._id,
@@ -63,4 +60,29 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+// 计算真实投票统计数据
+function calculateRealVotingStats(votingRound: any) {
+  let totalVotes = 0;
+  const uniqueVoters = new Set();
+  
+  // 遍历所有游戏，统计真实投票
+  for (const game of votingRound.games) {
+    if (game.voters && Array.isArray(game.voters)) {
+      // 统计该游戏的投票数（去重复投票）
+      const gameVotes = game.voters.length;
+      totalVotes += gameVotes;
+      
+      // 添加投票者到唯一投票者集合
+      game.voters.forEach((voter: string) => {
+        uniqueVoters.add(voter);
+      });
+    }
+  }
+  
+  return {
+    totalVotes,
+    totalParticipants: uniqueVoters.size
+  };
 } 

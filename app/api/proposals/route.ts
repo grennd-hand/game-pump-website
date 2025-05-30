@@ -19,6 +19,27 @@ export async function GET(request: NextRequest) {
     if (status && status !== 'all') query.status = status;
     if (type && type !== 'all') query.type = type;
 
+    // 自动更新过期提案的状态
+    const now = new Date();
+    const expiredProposals = await Proposal.find({
+      status: 'active',
+      deadline: { $lt: now }
+    });
+
+    for (const proposal of expiredProposals) {
+      const totalVotes = proposal.votesFor + proposal.votesAgainst;
+      const supportRate = totalVotes > 0 ? (proposal.votesFor / totalVotes) * 100 : 0;
+      
+      // 检查通过条件：支持率≥60% 且 总票数≥50
+      if (supportRate >= 60 && totalVotes >= 50) {
+        proposal.status = 'passed';
+      } else {
+        proposal.status = 'failed';
+      }
+      
+      await proposal.save();
+    }
+
     // 查询提案
     const proposals = await Proposal.find(query)
       .sort({ createdAt: -1 })
@@ -99,6 +120,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 验证标题长度
+    if (title.length > 200) {
+      return NextResponse.json(
+        { error: `标题过长，不能超过200个字符，当前：${title.length}字符` },
+        { status: 400 }
+      );
+    }
+
+    // 验证描述长度
+    if (description.length > 2000) {
+      return NextResponse.json(
+        { error: `描述过长，不能超过2000个字符，当前：${description.length}字符` },
+        { status: 400 }
+      );
+    }
+
+    // 内容健康检查
+    const forbiddenWords = ['垃圾', '废物', '傻逼', '操你妈', '死', '杀', '骗', '诈'];
+    const titleLower = title.toLowerCase();
+    const descLower = description.toLowerCase();
+    
+    for (const word of forbiddenWords) {
+      if (titleLower.includes(word) || descLower.includes(word)) {
+        return NextResponse.json(
+          { error: '内容审核失败，请使用健康、积极、建设性的语言' },
+          { status: 400 }
+        );
+      }
+    }
+
     // 验证提案类型
     if (!['game', 'governance', 'technical', 'funding'].includes(type)) {
       return NextResponse.json(
@@ -112,6 +163,19 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return NextResponse.json(
         { error: '用户不存在，请先连接钱包' },
+        { status: 400 }
+      );
+    }
+
+    // 检查用户经验值是否达到300（使用计算积分方案）
+    const votes = user.totalVotes || 0;
+    const checkinDays = user.dailyCheckin?.totalCheckins || user.checkinDays || 0;
+    const inviteCount = user.inviteRewards?.totalInvites || user.inviteCount || 0;
+    const calculatedScore = checkinDays * 3 + votes * 2 + inviteCount * 5;
+    
+    if (calculatedScore < 300) {
+      return NextResponse.json(
+        { error: `积分不足，需要300积分才能创建提案，当前积分：${calculatedScore}` },
         { status: 400 }
       );
     }

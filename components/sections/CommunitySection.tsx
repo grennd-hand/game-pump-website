@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, memo, useMemo, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useProposals, useCreateProposal, useProposalVote, CreateProposalData } from '@/hooks/useProposals'
 import { useUserProposals } from '@/hooks/useUserProposals'
 import { useProposalManagement } from '@/hooks/useProposalManagement'
 import { useWallet } from '@solana/wallet-adapter-react'
+import { useWalletConnect } from '@/hooks/useWalletConnect'
 import { useCommunityStats } from '@/hooks/useCommunityStats'
 import ConfirmDeleteModal from '@/components/modals/ConfirmDeleteModal'
 
@@ -39,9 +40,10 @@ interface NetworkLine {
   duration: number
 }
 
-export default function CommunitySection() {
+export default memo(function CommunitySection() {
   const { lang } = useLanguage()
   const { connected } = useWallet()
+  const { user, loading: userLoading, error: userError, connectUser } = useWalletConnect()
   const [selectedProposal, setSelectedProposal] = useState<string | null>(null)
   const [selectedTab, setSelectedTab] = useState('proposals')
   const [networkLines, setNetworkLines] = useState<NetworkLine[]>([])
@@ -625,6 +627,20 @@ export default function CommunitySection() {
     setNetworkLines(lines)
   }, [])
 
+  // 自动获取用户数据
+  useEffect(() => {
+    if (connected && !user && !userLoading) {
+      console.log('🔄 钱包已连接但没有用户数据，自动获取...')
+      connectUser().then(result => {
+        if (result) {
+          console.log('✅ 自动获取用户数据成功:', result.user.availableVotes, '票')
+        } else {
+          console.log('❌ 自动获取用户数据失败')
+        }
+      })
+    }
+  }, [connected, user, userLoading, connectUser])
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'border-retro-cyan text-retro-cyan bg-retro-cyan/10'
@@ -640,7 +656,7 @@ export default function CommunitySection() {
   }
 
   // 处理投票
-  const handleVote = async (proposalId: string, voteType: 'for' | 'against') => {
+  const handleVote = useCallback(async (proposalId: string, voteType: 'for' | 'against') => {
     if (!connected) {
       if ((window as any).addToast) {
         (window as any).addToast({
@@ -671,11 +687,19 @@ export default function CommunitySection() {
         })
       }
     }
-  }
+  }, [connected, vote, voteError, refreshProposals])
 
   // 处理创建提案
   const handleCreateProposal = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    console.log('🎯 提交提案检查状态:', {
+      connected,
+      userLoading,
+      user: user ? `存在，票数:${user.availableVotes}` : '不存在',
+      title: formData.title.length,
+      description: formData.description.length
+    })
     
     if (!connected) {
       if ((window as any).addToast) {
@@ -688,6 +712,48 @@ export default function CommunitySection() {
       return
     }
 
+    // 检查用户数据是否还在加载
+    if (userLoading) {
+      if ((window as any).addToast) {
+        (window as any).addToast({
+          type: 'warning',
+          title: '用户数据加载中',
+          message: '请等待用户数据加载完成后再试'
+        })
+      }
+      return
+    }
+
+    // 检查用户是否存在
+    if (!user) {
+      if ((window as any).addToast) {
+        (window as any).addToast({
+          type: 'error',
+          title: '用户数据异常',
+          message: '用户数据获取失败，请尝试重新连接钱包'
+        })
+      }
+      return
+    }
+
+    // 检查积分（使用计算方案）
+    const votes = user.totalVotes || 0
+    const checkinDays = user.dailyCheckin?.totalCheckins || 0
+    const inviteCount = user.inviteRewards?.totalInvites || 0
+    const calculatedScore = checkinDays * 3 + votes * 2 + inviteCount * 5
+    
+    if (calculatedScore < 300) {
+      if ((window as any).addToast) {
+        (window as any).addToast({
+          type: 'error',
+          title: '积分不足',
+          message: `需要300积分才能创建提案，当前积分：${calculatedScore}`
+        })
+      }
+      return
+    }
+
+    // 验证表单内容
     if (!formData.title.trim() || !formData.description.trim()) {
       if ((window as any).addToast) {
         (window as any).addToast({
@@ -697,6 +763,48 @@ export default function CommunitySection() {
         })
       }
       return
+    }
+
+    // 验证标题长度
+    if (formData.title.length > 200) {
+      if ((window as any).addToast) {
+        (window as any).addToast({
+          type: 'error',
+          title: '标题过长',
+          message: '标题不能超过200个字符，当前：' + formData.title.length
+        })
+      }
+      return
+    }
+
+    // 验证描述长度
+    if (formData.description.length > 2000) {
+      if ((window as any).addToast) {
+        (window as any).addToast({
+          type: 'error',
+          title: '描述过长',
+          message: '描述不能超过2000个字符，当前：' + formData.description.length
+        })
+      }
+      return
+    }
+
+    // 简单的内容健康检查
+    const forbiddenWords = ['垃圾', '废物', '傻逼', '操你妈', '死', '杀'];
+    const titleLower = formData.title.toLowerCase();
+    const descLower = formData.description.toLowerCase();
+    
+    for (const word of forbiddenWords) {
+      if (titleLower.includes(word) || descLower.includes(word)) {
+        if ((window as any).addToast) {
+          (window as any).addToast({
+            type: 'error',
+            title: '内容审核失败',
+            message: '请使用健康、积极、建设性的语言'
+          })
+        }
+        return
+      }
     }
 
     const result = await createProposal(formData)
@@ -763,6 +871,44 @@ export default function CommunitySection() {
     }
   }
 
+  // 调试用户状态
+  console.log('📊 CommunitySection 用户状态:', {
+    connected,
+    userLoading,
+    userExists: !!user,
+    userVotes: user?.availableVotes,
+    userError
+  })
+
+  // 计算用户积分状态
+  const getUserScoreStatus = (user: any) => {
+    if (!user) return { score: 0, canCreate: false }
+    
+    const votes = user.totalVotes || 0
+    const checkinDays = user.dailyCheckin?.totalCheckins || 0
+    const inviteCount = user.inviteRewards?.totalInvites || 0
+    const calculatedScore = checkinDays * 3 + votes * 2 + inviteCount * 5
+    
+    return {
+      score: calculatedScore,
+      canCreate: calculatedScore >= 300,
+      scoreColor: calculatedScore >= 300 ? 'text-retro-green' : 'text-red-400'
+    }
+  }
+
+  // 缓存用户积分状态
+  const scoreStatus = useMemo(() => getUserScoreStatus(user), [user])
+
+  // 防抖用户状态检查
+  const [stableUser, setStableUser] = useState(user)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setStableUser(user)
+    }, 100) // 100ms防抖
+    
+    return () => clearTimeout(timer)
+  }, [user])
+
   return (
     <section id="community" className="py-20 relative">
       {/* 网络连接线背景 */}
@@ -801,7 +947,7 @@ export default function CommunitySection() {
         >
           {communityStatsMap[lang].map((stat, index) => (
             <motion.div
-              key={index}
+              key={`community-stat-${stat.label}-${index}`}
               whileHover={{ scale: 1.05 }}
               className="pixel-card p-6 text-center"
             >
@@ -965,6 +1111,78 @@ export default function CommunitySection() {
               <div className="pixel-card p-8">
                 <h3 className="text-2xl font-retro text-retro-cyan mb-6">{createFormMap[lang].title}</h3>
                 
+                {/* 积分状态提示 */}
+                {connected && (
+                  <div className="mb-6 p-4 border-2 border-gray-600 rounded bg-gray-900">
+                    {userLoading ? (
+                      <div className="text-center">
+                        <div className="text-retro-cyan text-sm font-pixel mb-2">
+                          ⏳ 正在加载用户数据...
+                        </div>
+                        <div className="text-gray-400 text-xs font-pixel">
+                          请稍等，正在从服务器获取您的积分信息
+                        </div>
+                      </div>
+                    ) : !user ? (
+                      <div className="text-center">
+                        <div className="text-red-400 text-sm font-pixel mb-2">
+                          ❌ 用户数据获取失败
+                        </div>
+                        {userError && (
+                          <div className="text-red-300 text-xs font-pixel mb-2">
+                            错误详情：{userError}
+                          </div>
+                        )}
+                        <div className="text-gray-400 text-xs font-pixel mb-3">
+                          请尝试重新连接钱包或手动重试
+                        </div>
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={async () => {
+                            console.log('🔄 手动重试获取用户数据...')
+                            const result = await connectUser()
+                            if (result) {
+                              console.log('✅ 手动重试成功:', result.user.availableVotes, '票')
+                            } else {
+                              console.log('❌ 手动重试失败')
+                            }
+                          }}
+                          className="neon-button text-retro-cyan border-retro-cyan px-4 py-2 text-xs"
+                        >
+                          🔄 重新获取用户数据
+                        </motion.button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex justify-between items-center mb-4">
+                          <span className="text-sm font-pixel text-gray-400">当前积分</span>
+                          <span className={`text-lg font-bold ${scoreStatus.scoreColor}`}>
+                            {scoreStatus.score} / 300
+                          </span>
+                        </div>
+                        
+                        {scoreStatus.canCreate ? (
+                          <div className="text-center">
+                            <div className="text-retro-green text-sm font-pixel">
+                              ✅ 积分充足，可以创建提案
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-center">
+                            <div className="text-red-400 text-sm font-pixel mb-2">
+                              ❌ 积分不足，需要300积分才能创建提案
+                            </div>
+                            <div className="text-gray-400 text-xs font-pixel">
+                              通过投票、签到等方式获得更多积分
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+                
                 <div className="space-y-6">
                   <div>
                     <label className="block text-sm font-pixel text-retro-green mb-2">{createFormMap[lang].titleLabel}</label>
@@ -972,9 +1190,23 @@ export default function CommunitySection() {
                       type="text"
                       value={formData.title}
                       onChange={(e) => setFormData({...formData, title: e.target.value})}
-                      className="w-full px-4 py-3 bg-black border-2 border-gray-600 focus:border-retro-green rounded font-pixel text-white"
+                      className={`w-full px-4 py-3 bg-black border-2 rounded font-pixel text-white ${
+                        formData.title.length > 200 ? 'border-red-400' : 'border-gray-600 focus:border-retro-green'
+                      }`}
                       placeholder={createFormMap[lang].titlePlaceholder}
+                      maxLength={250}
                     />
+                    <div className="flex justify-between items-center mt-1">
+                      <div className={`text-xs font-pixel ${
+                        formData.title.length > 200 ? 'text-red-400' : 
+                        formData.title.length > 180 ? 'text-yellow-400' : 'text-gray-500'
+                      }`}>
+                        {formData.title.length}/200 字符
+                      </div>
+                      {formData.title.length > 200 && (
+                        <div className="text-xs text-red-400 font-pixel">❌ 超出限制</div>
+                      )}
+                    </div>
                   </div>
                   
                   <div>
@@ -983,6 +1215,7 @@ export default function CommunitySection() {
                       value={formData.type}
                       onChange={(e) => setFormData({...formData, type: e.target.value as 'game' | 'governance' | 'technical' | 'funding'})}
                       className="w-full px-4 py-3 bg-black border-2 border-gray-600 focus:border-retro-green rounded font-pixel text-white"
+                      title={createFormMap[lang].typeLabel}
                     >
                       <option value="game">{createFormMap[lang].gameProposal}</option>
                       <option value="governance">{createFormMap[lang].governanceProposal}</option>
@@ -997,17 +1230,120 @@ export default function CommunitySection() {
                       rows={6}
                       value={formData.description}
                       onChange={(e) => setFormData({...formData, description: e.target.value})}
-                      className="w-full px-4 py-3 bg-black border-2 border-gray-600 focus:border-retro-green rounded font-pixel text-white resize-none"
+                      className={`w-full px-4 py-3 bg-black border-2 rounded font-pixel text-white resize-none ${
+                        formData.description.length > 2000 ? 'border-red-400' : 'border-gray-600 focus:border-retro-green'
+                      }`}
                       placeholder={createFormMap[lang].descPlaceholder}
+                      maxLength={2100}
                     />
+                    <div className="flex justify-between items-center mt-1">
+                      <div className={`text-xs font-pixel ${
+                        formData.description.length > 2000 ? 'text-red-400' : 
+                        formData.description.length > 1800 ? 'text-yellow-400' : 'text-gray-500'
+                      }`}>
+                        {formData.description.length}/2000 字符
+                      </div>
+                      {formData.description.length > 2000 && (
+                        <div className="text-xs text-red-400 font-pixel">❌ 超出限制</div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex justify-center">
                     <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      className="neon-button text-retro-cyan border-retro-cyan px-8 py-3"
-                      onClick={handleCreateProposal}
+                      whileHover={{ scale: !createLoading ? 1.05 : 1 }}
+                      whileTap={{ scale: !createLoading ? 0.95 : 1 }}
+                      className={`neon-button px-8 py-3 ${
+                        createLoading
+                          ? 'text-gray-500 border-gray-500 cursor-not-allowed opacity-50'
+                          : 'text-retro-cyan border-retro-cyan'
+                      }`}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        
+                        // 检查是否可以提交
+                        if (createLoading) return
+                        
+                        if (!connected) {
+                          if ((window as any).addToast) {
+                            (window as any).addToast({
+                              type: 'error',
+                              title: '钱包未连接',
+                              message: '请先连接钱包'
+                            })
+                          }
+                          return
+                        }
+                        
+                        if (userLoading) {
+                          if ((window as any).addToast) {
+                            (window as any).addToast({
+                              type: 'warning',
+                              title: '用户数据加载中',
+                              message: '请等待用户数据加载完成后再试'
+                            })
+                          }
+                          return
+                        }
+                        
+                        if (!user) {
+                          if ((window as any).addToast) {
+                            (window as any).addToast({
+                              type: 'error',
+                              title: '用户数据异常',
+                              message: '用户数据获取失败，请尝试重新连接钱包'
+                            })
+                          }
+                          return
+                        }
+                        
+                        if (!formData.title.trim()) {
+                          if ((window as any).addToast) {
+                            (window as any).addToast({
+                              type: 'error',
+                              title: '标题为空',
+                              message: '请填写提案标题'
+                            })
+                          }
+                          return
+                        }
+                        
+                        if (!formData.description.trim()) {
+                          if ((window as any).addToast) {
+                            (window as any).addToast({
+                              type: 'error',
+                              title: '描述为空',
+                              message: '请填写提案描述'
+                            })
+                          }
+                          return
+                        }
+                        
+                        if (formData.title.length > 200) {
+                          if ((window as any).addToast) {
+                            (window as any).addToast({
+                              type: 'error',
+                              title: '标题过长',
+                              message: `标题不能超过200字符，当前：${formData.title.length}字符`
+                            })
+                          }
+                          return
+                        }
+                        
+                        if (formData.description.length > 2000) {
+                          if ((window as any).addToast) {
+                            (window as any).addToast({
+                              type: 'error',
+                              title: '描述过长',
+                              message: `描述不能超过2000字符，当前：${formData.description.length}字符`
+                            })
+                          }
+                          return
+                        }
+                        
+                        // 所有条件都满足，提交提案
+                        handleCreateProposal(e)
+                      }}
                       disabled={createLoading}
                     >
                       {createLoading ? '提交中...' : createFormMap[lang].submit}
@@ -1216,9 +1552,183 @@ export default function CommunitySection() {
           transition={{ delay: 0.8 }}
           className="mt-16"
         >
+          {/* 提案规则说明 */}
+          <div className="mb-12">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              className="text-center mb-8"
+            >
+              <h3 className="text-3xl font-retro text-retro-cyan mb-4">📋 提案规则说明</h3>
+              <p className="text-gray-400 font-pixel max-w-3xl mx-auto">
+                为确保社区治理的公平性和质量，请仔细阅读以下提案规则
+              </p>
+            </motion.div>
+
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              {/* 积分要求 */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="pixel-card p-6"
+              >
+                <div className="text-center">
+                  <div className="text-4xl mb-3">🎯</div>
+                  <h4 className="text-lg font-retro text-retro-yellow mb-3">积分要求</h4>
+                  <div className="text-2xl font-bold text-retro-green mb-2">300积分</div>
+                  <p className="text-sm text-gray-400 font-pixel">
+                    创建提案需要达到300积分门槛，通过投票、签到等活动获得积分
+                  </p>
+                </div>
+              </motion.div>
+
+              {/* 投票时间 */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="pixel-card p-6"
+              >
+                <div className="text-center">
+                  <div className="text-4xl mb-3">⏰</div>
+                  <h4 className="text-lg font-retro text-retro-cyan mb-3">投票时间</h4>
+                  <div className="text-2xl font-bold text-retro-cyan mb-2">7天</div>
+                  <p className="text-sm text-gray-400 font-pixel">
+                    每个提案的投票期为7天，到期后自动结算投票结果
+                  </p>
+                </div>
+              </motion.div>
+
+              {/* 通过条件 */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="pixel-card p-6"
+              >
+                <div className="text-center">
+                  <div className="text-4xl mb-3">✅</div>
+                  <h4 className="text-lg font-retro text-retro-green mb-3">通过条件</h4>
+                  <div className="text-2xl font-bold text-retro-green mb-2">60%+</div>
+                  <p className="text-sm text-gray-400 font-pixel">
+                    支持率达到60%且最少50票才能通过提案
+                  </p>
+                </div>
+              </motion.div>
+
+              {/* 提案类型 */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="pixel-card p-6"
+              >
+                <div className="text-center">
+                  <div className="text-4xl mb-3">📝</div>
+                  <h4 className="text-lg font-retro text-retro-magenta mb-3">提案类型</h4>
+                  <div className="text-sm text-gray-300 space-y-1">
+                    <div>🎮 游戏提案</div>
+                    <div>🏛️ 治理提案</div>
+                    <div>⚙️ 技术提案</div>
+                    <div>💰 资金提案</div>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+
+            {/* 详细规则说明 */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              className="pixel-card p-8"
+            >
+              <h4 className="text-xl font-retro text-retro-green mb-6 text-center">📖 详细规则</h4>
+              
+              <div className="grid md:grid-cols-2 gap-8">
+                <div>
+                  <h5 className="text-lg font-retro text-retro-cyan mb-4">📝 提案创建规则</h5>
+                  <div className="space-y-3 text-sm text-gray-300 font-pixel">
+                    <div className="flex items-start space-x-2">
+                      <span className="text-retro-green">•</span>
+                      <span>需要300积分才能创建提案</span>
+                    </div>
+                    <div className="flex items-start space-x-2">
+                      <span className="text-retro-green">•</span>
+                      <span>标题不超过200个字符</span>
+                    </div>
+                    <div className="flex items-start space-x-2">
+                      <span className="text-retro-green">•</span>
+                      <span>描述不超过2000个字符</span>
+                    </div>
+                    <div className="flex items-start space-x-2">
+                      <span className="text-retro-green">•</span>
+                      <span>必须选择合适的提案类型</span>
+                    </div>
+                    <div className="flex items-start space-x-2">
+                      <span className="text-retro-green">•</span>
+                      <span>内容需健康、积极、建设性</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h5 className="text-lg font-retro text-retro-yellow mb-4">🗳️ 投票规则</h5>
+                  <div className="space-y-3 text-sm text-gray-300 font-pixel">
+                    <div className="flex items-start space-x-2">
+                      <span className="text-retro-yellow">•</span>
+                      <span>每个用户对每个提案只能投一票</span>
+                    </div>
+                    <div className="flex items-start space-x-2">
+                      <span className="text-retro-yellow">•</span>
+                      <span>投票不消耗用户的投票票数</span>
+                    </div>
+                    <div className="flex items-start space-x-2">
+                      <span className="text-retro-yellow">•</span>
+                      <span>投票一旦提交不可修改</span>
+                    </div>
+                    <div className="flex items-start space-x-2">
+                      <span className="text-retro-yellow">•</span>
+                      <span>投票结果公开透明</span>
+                    </div>
+                    <div className="flex items-start space-x-2">
+                      <span className="text-retro-yellow">•</span>
+                      <span>7天投票期结束后自动结算</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-8 pt-6 border-t border-gray-700">
+                <h5 className="text-lg font-retro text-retro-magenta mb-4 text-center">🎯 通过与执行</h5>
+                <div className="grid md:grid-cols-3 gap-6 text-sm text-gray-300 font-pixel">
+                  <div className="text-center">
+                    <div className="text-retro-green text-lg mb-2">✅ 通过条件</div>
+                    <div>支持率 ≥ 60%</div>
+                    <div>总票数 ≥ 50票</div>
+                    <div>投票期内达成</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-red-400 text-lg mb-2">❌ 未通过</div>
+                    <div>支持率 &lt; 60%</div>
+                    <div>或总票数 &lt; 50票</div>
+                    <div>投票期结束未达成</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-retro-cyan text-lg mb-2">⚡ 自动执行</div>
+                    <div>通过的提案</div>
+                    <div>将由开发团队</div>
+                    <div>评估并执行</div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+
           <div className="grid md:grid-cols-3 gap-8">
             {governanceInfoMap[lang].map((info, index) => (
-              <div key={index} className="pixel-card p-6 text-center">
+              <div key={`governance-info-${info.title}-${index}`} className="pixel-card p-6 text-center">
                 <div className="text-4xl mb-4">{info.icon}</div>
                 <h4 className="text-lg font-retro text-retro-green mb-3">{info.title}</h4>
                 <p className="text-sm text-gray-400 font-pixel">
@@ -1240,4 +1750,4 @@ export default function CommunitySection() {
       />
     </section>
   )
-} 
+}) 

@@ -38,12 +38,13 @@ export async function GET(request: NextRequest) {
     const users = await usersCollection.find({}).toArray()
     console.log(`找到 ${users.length} 个用户`)
     
-    // 在代码中计算积分并排序
+    // 使用积分计算方案：签到天数*3 + 投票数*2 + 邀请数*5
     const leaderboard = users
       .map((user: any) => {
         const votes = user.totalVotes || user.votes || 0
         const checkinDays = user.dailyCheckin?.totalCheckins || user.checkinDays || 0  
         const inviteCount = user.inviteRewards?.totalInvites || user.inviteCount || 0
+        // 使用积分计算方案
         const score = checkinDays * 3 + votes * 2 + inviteCount * 5
         
         let level = 'player'

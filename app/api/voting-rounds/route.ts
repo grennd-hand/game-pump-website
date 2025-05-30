@@ -17,9 +17,27 @@ export async function GET(request: NextRequest) {
     
     const rounds = await VotingRound.find(query).sort({ roundNumber: -1 })
     
+    // 计算真实投票数据
+    const processedRounds = rounds.map(round => {
+      const roundObj = round.toObject();
+      const votingStats = calculateRealVotingData(roundObj);
+      
+      // 更新游戏投票数据
+      roundObj.games = roundObj.games.map((game: any) => ({
+        ...game,
+        votes: game.voters ? game.voters.length : 0
+      }));
+      
+      // 更新轮次统计
+      roundObj.totalVotes = votingStats.totalVotes;
+      roundObj.totalParticipants = votingStats.totalParticipants;
+      
+      return roundObj;
+    });
+    
     return NextResponse.json({
       success: true,
-      rounds
+      rounds: processedRounds
     })
     
   } catch (error) {
@@ -29,6 +47,31 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+// 计算真实投票数据
+function calculateRealVotingData(votingRound: any) {
+  let totalVotes = 0;
+  const uniqueVoters = new Set();
+  
+  // 遍历所有游戏，统计真实投票
+  for (const game of votingRound.games) {
+    if (game.voters && Array.isArray(game.voters)) {
+      // 统计该游戏的投票数
+      const gameVotes = game.voters.length;
+      totalVotes += gameVotes;
+      
+      // 添加投票者到唯一投票者集合
+      game.voters.forEach((voter: string) => {
+        uniqueVoters.add(voter);
+      });
+    }
+  }
+  
+  return {
+    totalVotes,
+    totalParticipants: uniqueVoters.size
+  };
 }
 
 // 创建新投票轮次

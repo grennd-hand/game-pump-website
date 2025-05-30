@@ -159,7 +159,7 @@ export default function SimpleLeaderboard() {
       totalVotesTooltip: 'Total number of votes received from community',
       achievementsTooltip: 'Number of achievements unlocked in games',
       winRateTooltip: 'Percentage of games won vs total games played',
-      levelTooltip: 'Player level based on total experience and achievements',
+      levelTooltip: 'Player level based on total votes and achievements',
       scoreTooltip: 'Total accumulated points from all activities',
       rankTooltip: 'Current ranking position in the leaderboard'
     },

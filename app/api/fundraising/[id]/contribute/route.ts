@@ -116,12 +116,11 @@ export async function POST(
 
     await fundraising.save();
 
-    // 更新用户信息
+    // 更新用户经验
     await User.findOneAndUpdate(
       { walletAddress },
       { 
-        $inc: { experience: Math.floor(amount * 5) }, // 每SOL获得5经验
-        lastActive: new Date()
+        $set: { lastActive: new Date() }
       }
     );
 

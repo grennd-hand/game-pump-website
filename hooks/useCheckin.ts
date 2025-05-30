@@ -4,6 +4,30 @@ import { useState, useEffect, useCallback } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useWalletConnect } from './useWalletConnect';
 
+interface User {
+  _id: string;
+  walletAddress: string;
+  username?: string;
+  avatar?: string;
+  totalVotes: number;
+  totalTokens: number;
+  availableVotes: number;
+  solBalance?: number;
+  level: number;
+  achievements: string[];
+  joinedAt: string;
+  lastActive: string;
+  dailyCheckin: {
+    lastCheckinDate?: string;
+    consecutiveDays: number;
+    totalCheckins: number;
+  };
+  inviteRewards: {
+    totalInvites: number;
+    totalRewards: number;
+  };
+}
+
 interface CheckinStatus {
   canCheckin: boolean;
   dailyCheckin: {
@@ -19,7 +43,6 @@ interface CheckinStatus {
 
 interface CheckinReward {
   votes: number;
-  experience: number;
   consecutiveDays: number;
   totalCheckins: number;
 }
@@ -165,7 +188,6 @@ export function useCheckin() {
       if (data.success) {
         setLastReward({
           votes: data.rewardVotes,
-          experience: data.rewardExperience,
           consecutiveDays: data.consecutiveDays,
           totalCheckins: data.totalCheckins
         });

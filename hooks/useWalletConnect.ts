@@ -3,24 +3,28 @@ import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { handleWalletError } from '@/utils/walletErrorHandler';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 
-interface User {
-  id: string;
+export interface User {
+  _id: string;
   walletAddress: string;
-  username: string;
+  username?: string;
   avatar?: string;
   totalVotes: number;
   totalTokens: number;
   availableVotes: number;
-  solBalance: number;
-  level: number;
-  experience: number;
-  achievements: string[];
-  preferences: {
-    language: 'en' | 'zh' | 'ja' | 'ko';
-    notifications: boolean;
-  };
+  solBalance?: number;
   joinedAt: string;
   lastActive: string;
+  level: number;
+  achievements: string[];
+  dailyCheckin: {
+    lastCheckinDate?: string;
+    consecutiveDays: number;
+    totalCheckins: number;
+  };
+  inviteRewards: {
+    totalInvites: number;
+    totalRewards: number;
+  };
 }
 
 interface ConnectResponse {

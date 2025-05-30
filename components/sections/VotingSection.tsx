@@ -222,6 +222,11 @@ export default function VotingSection() {
         if (refreshUser) {
           refreshUser()
         }
+        
+        // 刷新轮次数据，确保参与玩家数和投票数实时更新
+        if (refetch) {
+          refetch()
+        }
       }
     } catch (error) {
       console.error('投票失败:', error)

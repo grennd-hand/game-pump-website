@@ -92,6 +92,7 @@ export async function POST(
 
     // 更新游戏投票数据
     let totalNewVotes = 0;
+    const freshlyCreatedProjects = [];
     for (const [gameId, voteCount] of Object.entries(votes)) {
       const gameIndex = round.games.findIndex((game: any) => game.id === gameId);
       const count = Number(voteCount) || 0;
@@ -102,6 +103,9 @@ export async function POST(
           round.games[gameIndex].voters.push(walletAddress);
         }
         totalNewVotes += count;
+        if (gameIndex === round.games.length - 1) {
+          freshlyCreatedProjects.push(round.games[gameIndex]);
+        }
       }
     }
 
@@ -120,7 +124,6 @@ export async function POST(
       { walletAddress },
       { 
         $inc: { 
-          experience: totalNewVotes * 10, // 每票获得10经验
           totalVotes: totalNewVotes,
           availableVotes: -totalNewVotes // 减少可用投票数
         },
@@ -130,10 +133,15 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      message: '投票成功',
-      votes: votes,
-      totalVotes: round.totalVotes,
-      experienceGained: totalNewVotes * 10
+      message: `成功投票 ${totalNewVotes} 票`,
+      votesUsed: totalNewVotes,
+      remainingVotes: user.availableVotes - totalNewVotes,
+      userTotalVotes: user.totalVotes + totalNewVotes,
+      newProjects: freshlyCreatedProjects.map(p => ({
+        name: p.name,
+        description: p.description,
+        votes: p.votes
+      }))
     });
 
   } catch (error) {

@@ -11,7 +11,6 @@ export interface IUser extends Document {
   joinedAt: Date;
   lastActive: Date;
   level: number;
-  experience: number;
   achievements: string[];
   preferences: {
     language: 'en' | 'zh' | 'ja' | 'ko';
@@ -31,18 +30,47 @@ export interface IUser extends Document {
     totalInvites: number;
     totalRewards: number; // 获得的总奖励票数
   };
+  // 任务系统相关
+  totalPoints: number; // 总积分
+  completedTasks: number; // 完成的任务数量
+  taskMultiplier: number; // 任务倍数 (每完成一个任务乘以1.0)
+  
+  // 社交媒体账号绑定
+  socialAccounts: {
+    twitter?: {
+      username: string;
+      verified: boolean;
+      verifiedAt?: Date;
+    };
+    telegram?: {
+      username: string;
+      userId?: string;
+      verified: boolean;
+      verifiedAt?: Date;
+    };
+  };
+  
+  // OAuth授权中间状态
+  pendingAuth?: {
+    [platform: string]: {
+      state: string;
+      initiated: Date;
+      completed: boolean;
+      awaitingBot?: boolean;
+    };
+  };
 }
 
 const UserSchema = new Schema<IUser>({
   walletAddress: {
     type: String,
     required: true,
-    unique: true,
-    index: true
+    unique: true
   },
   username: {
     type: String,
-    default: null
+    default: null,
+    sparse: true // 允许null值但确保非null值唯一
   },
   avatar: {
     type: String,
@@ -75,10 +103,6 @@ const UserSchema = new Schema<IUser>({
   level: {
     type: Number,
     default: 1
-  },
-  experience: {
-    type: Number,
-    default: 0
   },
   achievements: [{
     type: String
@@ -113,7 +137,6 @@ const UserSchema = new Schema<IUser>({
   inviteCode: {
     type: String,
     required: false, // 改为非必需，允许后续生成
-    unique: true,
     sparse: true // 允许null值，但唯一
   },
   invitedBy: {
@@ -132,18 +155,82 @@ const UserSchema = new Schema<IUser>({
       type: Number,
       default: 0
     }
+  },
+  // 任务系统相关
+  totalPoints: {
+    type: Number,
+    default: 0
+  },
+  completedTasks: {
+    type: Number,
+    default: 0
+  },
+  taskMultiplier: {
+    type: Number,
+    default: 1.0
+  },
+  // 社交媒体账号绑定
+  socialAccounts: {
+    twitter: {
+      username: {
+        type: String,
+        default: null
+      },
+      verified: {
+        type: Boolean,
+        default: false
+      },
+      verifiedAt: {
+        type: Date,
+        default: null
+      }
+    },
+    telegram: {
+      username: {
+        type: String,
+        default: null
+      },
+      userId: {
+        type: String,
+        default: null
+      },
+      verified: {
+        type: Boolean,
+        default: false
+      },
+      verifiedAt: {
+        type: Date,
+        default: null
+      }
+    }
+  },
+  // OAuth授权中间状态
+  pendingAuth: {
+    type: Map,
+    of: {
+      state: String,
+      initiated: Date,
+      completed: Boolean,
+      awaitingBot: {
+        type: Boolean,
+        default: false
+      }
+    }
   }
 }, {
   timestamps: true
 });
 
-// 创建索引
+// 索引 - 移除重复定义
+UserSchema.index({ level: -1 });
 UserSchema.index({ totalVotes: -1 });
-UserSchema.index({ totalTokens: -1 });
-UserSchema.index({ level: -1, experience: -1 });
 UserSchema.index({ 'dailyCheckin.lastCheckinDate': 1 });
-// UserSchema.index({ inviteCode: 1 }); // 重复索引，unique: true已自动创建
-UserSchema.index({ invitedBy: 1 });
+UserSchema.index({ lastActive: -1 });
+UserSchema.index({ solBalance: -1 });
+UserSchema.index({ 'inviteRewards.totalInvites': -1 });
+UserSchema.index({ totalPoints: -1 });
+UserSchema.index({ completedTasks: -1 });
+UserSchema.index({ taskMultiplier: -1 });
 
 // 生成邀请码的静态方法
 UserSchema.statics.generateInviteCode = function() {
@@ -201,7 +288,6 @@ UserSchema.methods.performCheckin = function() {
   
   // 添加奖励票数
   this.availableVotes += rewardVotes;
-  this.experience += rewardVotes * 5; // 每票5经验
   
   return {
     rewardVotes,

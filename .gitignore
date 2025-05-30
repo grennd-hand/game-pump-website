@@ -1,7 +1,10 @@
 # Dependencies
-node_modules
+/node_modules
 /.pnp
 .pnp.js
+
+# Admin directory
+/admin
 
 # Testing
 /coverage
@@ -21,10 +24,10 @@ node_modules
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.pnpm-debug.log*
 
 # Local env files
 .env*.local
+.env
 
 # Vercel
 .vercel
@@ -34,11 +37,81 @@ yarn-error.log*
 next-env.d.ts
 
 # IDE
-.vscode
-.idea
+.vscode/
+.idea/
 
 # OS
-Thumbs.db 
+Thumbs.db
+
+# Logs
+logs
+*.log
+
+# Sync reports and migration files
+sync-*.json
+migration-*.json
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Dependency directories
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# DynamoDB Local files
+.dynamodb/
+
+# TernJS port file
+.tern-port
+
+# 安全相关文件
+*.key
+*.pem
+*.crt
+secrets/
+.secrets
+
+# 数据库备份文件
+*.bak
+*.backup
+*.sql
+
+# 临时文件
+temp/
+tmp/
+*.tmp
+*.temp
+
+# 日志文件
+audit.log
+
+# 开发测试文件
+test-*.js
+check_*.js
+reset_*.js
+
+# 备份文件
+*.backup
+*.bak
+*.tmp
+
+# 数据库转储
+*.dump
+*.db
 
 # Admin Panel - Local Only (不上传管理后台)
 /app/admin/

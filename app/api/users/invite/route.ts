@@ -43,8 +43,8 @@ export async function POST(request: NextRequest) {
     }
 
     // 检查SOL余额是否满足要求
-    const hasValidBalance = (solBalance || 0) >= 0.1;
-    const inviterRewardVotes = hasValidBalance ? 3 : 0; // 只有余额≥0.1 SOL才给邀请者奖励
+    const hasValidBalance = (solBalance || 0) >= 0;
+    const inviterRewardVotes = hasValidBalance ? 3 : 0; // 只要余额≥0 SOL就给邀请者奖励
     const newUserVotes = 3; // 被邀请者总是获得3票新手奖励
 
     // 生成新用户的邀请码
@@ -67,7 +67,6 @@ export async function POST(request: NextRequest) {
       availableVotes: newUserVotes, // 被邀请者获得3票
       solBalance: solBalance || 0,
       level: 1,
-      experience: 0,
       achievements: ['invited_user'],
       preferences: {
         language: 'zh',
@@ -94,9 +93,6 @@ export async function POST(request: NextRequest) {
     if (hasValidBalance) {
       inviter.inviteRewards.totalRewards += inviterRewardVotes;
       inviter.availableVotes += inviterRewardVotes;
-      inviter.experience += 30; // 有效邀请奖励30经验
-    } else {
-      inviter.experience += 10; // 无效邀请仍给少量经验
     }
     
     inviter.lastActive = new Date();
@@ -115,7 +111,7 @@ export async function POST(request: NextRequest) {
       success: true,
       message: hasValidBalance 
         ? '邀请注册成功！邀请者获得3票奖励' 
-        : '邀请注册成功！但邀请者未获得奖励（需要被邀请者余额≥0.1 SOL）',
+        : '邀请注册成功！但邀请者未获得奖励（需要被邀请者余额≥0 SOL）',
       newUser: {
         id: newUser._id,
         walletAddress: newUser.walletAddress,
@@ -125,7 +121,6 @@ export async function POST(request: NextRequest) {
       },
       inviterReward: {
         votes: inviterRewardVotes,
-        experience: hasValidBalance ? 30 : 10,
         totalInvites: inviter.inviteRewards.totalInvites,
         hasValidBalance
       }
@@ -170,6 +165,11 @@ export async function GET(request: NextRequest) {
       { walletAddress: 1, username: 1, joinedAt: 1, level: 1 }
     );
 
+    // 动态获取当前主机信息
+    const host = request.headers.get('host') || 'localhost:3001';
+    const protocol = host.includes('localhost') ? 'http' : 'https';
+    const baseUrl = `${protocol}://${host}`;
+
     return NextResponse.json({
       success: true,
       inviteCode: user.inviteCode,
@@ -184,7 +184,7 @@ export async function GET(request: NextRequest) {
         }))
       },
       invitedBy: user.invitedBy,
-      shareUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}?invite=${user.inviteCode}`
+      shareUrl: `${process.env.NEXT_PUBLIC_BASE_URL || baseUrl}?invite=${user.inviteCode}`
     });
 
   } catch (error) {

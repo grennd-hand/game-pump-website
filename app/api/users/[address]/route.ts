@@ -22,18 +22,20 @@ export async function GET(
     return NextResponse.json({
       success: true,
       user: {
-        id: user._id,
+        _id: user._id,
         walletAddress: user.walletAddress,
         username: user.username,
         avatar: user.avatar,
         totalVotes: user.totalVotes,
         totalTokens: user.totalTokens,
+        availableVotes: user.availableVotes,
+        solBalance: user.solBalance,
         level: user.level,
-        experience: user.experience,
         achievements: user.achievements,
-        preferences: user.preferences,
         joinedAt: user.joinedAt,
-        lastActive: user.lastActive
+        lastActive: user.lastActive,
+        dailyCheckin: user.dailyCheckin,
+        inviteRewards: user.inviteRewards
       }
     });
 
@@ -75,18 +77,20 @@ export async function PUT(
     return NextResponse.json({
       success: true,
       user: {
-        id: user._id,
+        _id: user._id,
         walletAddress: user.walletAddress,
         username: user.username,
         avatar: user.avatar,
         totalVotes: user.totalVotes,
         totalTokens: user.totalTokens,
+        availableVotes: user.availableVotes,
+        solBalance: user.solBalance,
         level: user.level,
-        experience: user.experience,
         achievements: user.achievements,
-        preferences: user.preferences,
         joinedAt: user.joinedAt,
-        lastActive: user.lastActive
+        lastActive: user.lastActive,
+        dailyCheckin: user.dailyCheckin,
+        inviteRewards: user.inviteRewards
       }
     });
 

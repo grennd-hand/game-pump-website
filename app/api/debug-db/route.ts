@@ -1,8 +1,26 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin, createAuthError, rateLimit, getClientIP } from '@/lib/auth';
 import { MongoClient } from 'mongodb';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // 限流保护
+    const clientIP = getClientIP(request);
+    if (!rateLimit(clientIP, 10, 60000)) { // 每分钟最多10次请求
+      return NextResponse.json(
+        { error: '请求过于频繁，请稍后再试' },
+        { status: 429 }
+      );
+    }
+
+    // 验证管理员权限
+    try {
+      const admin = requireAdmin(request);
+      console.log(`🔐 管理员 ${admin.walletAddress} 请求调试数据库`);
+    } catch (error) {
+      return createAuthError('需要管理员权限才能访问调试信息');
+    }
+
     const uri = process.env.MONGODB_URI;
     
     if (!uri) {

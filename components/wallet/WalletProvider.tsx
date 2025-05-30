@@ -3,10 +3,9 @@
 import React, { useMemo } from 'react';
 import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
 import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
-import {
-  PhantomWalletAdapter,
-  SolflareWalletAdapter,
-} from '@solana/wallet-adapter-wallets';
+// 直接导入单个钱包适配器，避免依赖问题
+import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom';
+import { SolflareWalletAdapter } from '@solana/wallet-adapter-solflare';
 import TokenPocketWalletAdapter from './TokenPocketWalletAdapter';
 import OKXWalletAdapter from './OKXWalletAdapter';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';

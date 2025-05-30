@@ -71,16 +71,8 @@ export async function POST(
       );
     }
 
-    // 检查用户投票权限 - 至少需要一定经验值
-    if (user.experience < 50) {
-      return NextResponse.json(
-        { error: '投票需要至少50经验值' },
-        { status: 400 }
-      );
-    }
-
-    // 计算投票权重（基于用户经验值或代币持有量）
-    const votingPower = Math.max(1, Math.floor(user.experience / 100));
+    // 每个用户每个提案只能投一票，投票权重为1
+    const votingPower = 1;
 
     // 添加投票记录
     proposal.voters.push({
@@ -90,23 +82,20 @@ export async function POST(
       timestamp: new Date()
     });
 
-    // 更新投票计数
+    // 更新投票计数 - 每票权重为1
     if (vote === 'for') {
-      proposal.votesFor += votingPower;
+      proposal.votesFor += 1;
     } else {
-      proposal.votesAgainst += votingPower;
+      proposal.votesAgainst += 1;
     }
 
     await proposal.save();
 
-    // 更新用户经验值
-    await User.findOneAndUpdate(
-      { walletAddress },
-      { 
-        $inc: { experience: 5 }, // 投票获得5经验
-        lastActive: new Date()
-      }
-    );
+    // 投票处理
+    await User.findByIdAndUpdate(user._id, {
+      $push: { [`proposalVotes.${params.id}`]: { choice: vote, timestamp: new Date() } },
+      $set: { lastActive: new Date() }
+    });
 
     // 计算通过率
     const totalVotes = proposal.votesFor + proposal.votesAgainst;
@@ -114,17 +103,8 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      message: `投票成功 (${vote === 'for' ? '支持' : '反对'})`,
-      proposal: {
-        id: proposal._id,
-        votesFor: proposal.votesFor,
-        votesAgainst: proposal.votesAgainst,
-        totalVotes,
-        passingRate: Math.round(passingRate * 10) / 10,
-        status: proposal.status
-      },
-      votingPower,
-      experienceGained: 5
+      message: '投票成功',
+      choice: vote
     });
 
   } catch (error) {

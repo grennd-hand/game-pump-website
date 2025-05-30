@@ -3,6 +3,7 @@
 /* 钱包模态框背景 */
 .wallet-adapter-modal-overlay {
   background-color: rgba(0, 0, 0, 0.8) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
   backdrop-filter: blur(8px) !important;
 }
 

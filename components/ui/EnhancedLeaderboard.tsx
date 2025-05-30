@@ -96,17 +96,13 @@ export default function EnhancedLeaderboard() {
       weeklyGain: 'Weekly +',
       totalUsers: 'Total Users',
       activeUsers: 'Active Users',
-      achievements: 'Achievements',
-      winRate: 'Win Rate',
       lastUpdated: 'Last Updated',
       refreshing: 'Refreshing...',
       refresh: 'Refresh',
       emptySlot: 'No Player Yet',
       tooltipVotes: 'Total number of votes cast',
       tooltipCheckins: 'Number of days checked in',
-      tooltipInvites: 'Number of users invited',
-      tooltipAchievements: 'Number of achievements unlocked',
-      tooltipWinRate: 'Win rate percentage'
+      tooltipInvites: 'Number of users invited'
     },
     zh: {
       votes: '投票数',
@@ -122,17 +118,13 @@ export default function EnhancedLeaderboard() {
       weeklyGain: '本周 +',
       totalUsers: '总用户',
       activeUsers: '活跃用户',
-      achievements: '成就',
-      winRate: '胜率',
       lastUpdated: '最后更新',
       refreshing: '刷新中...',
       refresh: '刷新',
       emptySlot: '暂无玩家',
       tooltipVotes: '累计投票总数',
       tooltipCheckins: '累计签到天数',
-      tooltipInvites: '成功邀请用户数量',
-      tooltipAchievements: '已解锁成就数量',
-      tooltipWinRate: '游戏胜率百分比'
+      tooltipInvites: '成功邀请用户数量'
     },
     ja: {
       votes: '投票数',
@@ -148,17 +140,13 @@ export default function EnhancedLeaderboard() {
       weeklyGain: '今週 +',
       totalUsers: '総ユーザー',
       activeUsers: 'アクティブユーザー',
-      achievements: '実績',
-      winRate: '勝率',
       lastUpdated: '最終更新',
       refreshing: '更新中...',
       refresh: '更新',
       emptySlot: 'プレイヤーなし',
       tooltipVotes: '総投票数',
       tooltipCheckins: 'チェックイン日数',
-      tooltipInvites: '招待ユーザー数',
-      tooltipAchievements: '解除済み実績数',
-      tooltipWinRate: '勝率パーセンテージ'
+      tooltipInvites: '招待ユーザー数'
     },
     ko: {
       votes: '투표수',
@@ -174,17 +162,13 @@ export default function EnhancedLeaderboard() {
       weeklyGain: '주간 +',
       totalUsers: '총 사용자',
       activeUsers: '활성 사용자',
-      achievements: '업적',
-      winRate: '승률',
       lastUpdated: '마지막 업데이트',
       refreshing: '새로고침 중...',
       refresh: '새로고침',
       emptySlot: '플레이어 없음',
       tooltipVotes: '총 투표 수',
       tooltipCheckins: '체크인 일수',
-      tooltipInvites: '초대한 사용자 수',
-      tooltipAchievements: '해제된 업적 수',
-      tooltipWinRate: '승률 백분율'
+      tooltipInvites: '초대한 사용자 수'
     }
   }
 
@@ -217,8 +201,6 @@ export default function EnhancedLeaderboard() {
           votes: 0,
           checkinDays: 0,
           inviteCount: 0,
-          achievements: 0,
-          winRate: 0,
           walletAddress: '---',
           joinedAt: new Date(),
           weeklyGain: 0,
@@ -409,11 +391,9 @@ export default function EnhancedLeaderboard() {
           <div className="bg-gradient-to-r from-black/80 to-retro-green/10 px-6 py-4 border-b border-retro-green/30">
             <div className="grid grid-cols-12 gap-4 items-center text-sm font-pixel text-gray-400 uppercase tracking-wider">
               <div className="col-span-1">排名</div>
-              <div className="col-span-3">玩家</div>
-              <div className="col-span-2">积分</div>
-              <div className="col-span-2">统计</div>
-              <div className="col-span-2">成就</div>
-              <div className="col-span-2">加入时间</div>
+              <div className="col-span-4">玩家</div>
+              <div className="col-span-4">积分 & 统计</div>
+              <div className="col-span-3">加入时间</div>
             </div>
           </div>
 
@@ -442,7 +422,7 @@ export default function EnhancedLeaderboard() {
                     </div>
 
                     {/* 玩家信息 */}
-                    <div className="col-span-3">
+                    <div className="col-span-4">
                       <div className="flex items-center space-x-3">
                         <div className="text-2xl">{user.avatar}</div>
                         <div>
@@ -463,10 +443,10 @@ export default function EnhancedLeaderboard() {
                       </div>
                     </div>
 
-                    {/* 积分 */}
-                    <div className="col-span-2">
+                    {/* 积分 & 统计 */}
+                    <div className="col-span-4">
                       {!user.isEmpty && (
-                        <>
+                        <div className="space-y-2">
                           <div className="font-bold text-xl text-retro-green">
                             {user.score.toLocaleString()}
                           </div>
@@ -475,33 +455,11 @@ export default function EnhancedLeaderboard() {
                               +{user.weeklyGain} {statsLabelsMap[lang].weeklyGain}
                             </div>
                           )}
-                        </>
-                      )}
-                      {user.isEmpty && (
-                        <div className="text-gray-500">---</div>
-                      )}
-                    </div>
-
-                    {/* 统计数据 */}
-                    <div className="col-span-2">
-                      {!user.isEmpty && (
-                        <div className="flex space-x-2 text-sm">
+                          <div className="flex space-x-3 text-sm">
                           <div className="text-blue-400">🗳️ {user.votes}</div>
                           <div className="text-yellow-400">📅 {user.checkinDays}</div>
                           <div className="text-purple-400">👥 {user.inviteCount}</div>
                         </div>
-                      )}
-                      {user.isEmpty && (
-                        <div className="text-gray-500">---</div>
-                      )}
-                    </div>
-
-                    {/* 成就数据 */}
-                    <div className="col-span-2">
-                      {!user.isEmpty && (
-                        <div className="flex space-x-2 text-sm">
-                          <div className="text-orange-400">🏆 {user.achievements}</div>
-                          <div className="text-green-400">🎯 {user.winRate}%</div>
                         </div>
                       )}
                       {user.isEmpty && (
@@ -510,7 +468,7 @@ export default function EnhancedLeaderboard() {
                     </div>
 
                     {/* 加入时间 */}
-                    <div className="col-span-2">
+                    <div className="col-span-3">
                       {!user.isEmpty && (
                         <div className="text-sm text-gray-400">
                           {formatDate(user.joinedAt)}

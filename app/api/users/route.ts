@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
   try {
     await dbConnect();
     
-    const { walletAddress } = await request.json();
+    const { walletAddress, username, solBalance } = await request.json();
     
     if (!walletAddress) {
       return NextResponse.json(
@@ -20,32 +20,87 @@ export async function POST(request: NextRequest) {
     let user = await User.findOne({ walletAddress });
     
     if (!user) {
-      user = new User({
+      // 生成唯一邀请码
+      let inviteCode;
+      let isUnique = false;
+      while (!isUnique) {
+        inviteCode = (User as any).generateInviteCode();
+        const existingCode = await User.findOne({ inviteCode });
+        if (!existingCode) {
+          isUnique = true;
+        }
+      }
+
+      // 创建新用户
+      const newUser = new User({
         walletAddress,
-        username: `User_${walletAddress.slice(-6)}`,
+        username: username || `Player_${walletAddress.slice(-6)}`,
         totalVotes: 0,
         totalTokens: 0,
         availableVotes: 0,
-        solBalance: 0,
+        solBalance: solBalance || 0,
         level: 1,
-        experience: 0,
         achievements: [],
         preferences: {
-          language: 'en',
+          language: 'zh',
           notifications: true
+        },
+        inviteCode: inviteCode,
+        dailyCheckin: {
+          consecutiveDays: 0,
+          totalCheckins: 0
+        },
+        inviteRewards: {
+          totalInvites: 0,
+          totalRewards: 0
+        },
+        // 任务系统相关 - 确保新用户有基础积分
+        totalPoints: 100,
+        completedTasks: 0,
+        taskMultiplier: 1.0,
+        // 社交媒体账号初始化
+        socialAccounts: {
+          twitter: {
+            username: null,
+            verified: false,
+            verifiedAt: null
+          },
+          telegram: {
+            username: null,
+            userId: null,
+            verified: false,
+            verifiedAt: null
+          }
         }
       });
-      await user.save();
+      await newUser.save();
+
+      user = newUser;
     } else {
       // 更新最后活跃时间
       user.lastActive = new Date();
+      
+      // 如果现有用户没有邀请码，给他们生成一个
+      if (!user.inviteCode) {
+        let inviteCode;
+        let isUnique = false;
+        while (!isUnique) {
+          inviteCode = (User as any).generateInviteCode();
+          const existingCode = await User.findOne({ inviteCode });
+          if (!existingCode) {
+            isUnique = true;
+          }
+        }
+        user.inviteCode = inviteCode;
+      }
+      
       await user.save();
     }
 
     return NextResponse.json({
       success: true,
       user: {
-        id: user._id,
+        _id: user._id,
         walletAddress: user.walletAddress,
         username: user.username,
         avatar: user.avatar,
@@ -54,11 +109,17 @@ export async function POST(request: NextRequest) {
         availableVotes: user.availableVotes,
         solBalance: user.solBalance,
         level: user.level,
-        experience: user.experience,
         achievements: user.achievements,
-        preferences: user.preferences,
         joinedAt: user.joinedAt,
-        lastActive: user.lastActive
+        lastActive: user.lastActive,
+        dailyCheckin: user.dailyCheckin,
+        inviteRewards: user.inviteRewards,
+        // 任务系统相关
+        totalPoints: user.totalPoints,
+        completedTasks: user.completedTasks,
+        taskMultiplier: user.taskMultiplier,
+        // 社交媒体账号
+        socialAccounts: user.socialAccounts
       }
     });
 
@@ -87,19 +148,25 @@ export async function GET(request: NextRequest) {
       .sort({ [sortBy]: -1 })
       .skip(skip)
       .limit(limit)
-      .select('walletAddress username avatar totalVotes totalTokens availableVotes solBalance level experience');
+      .select('walletAddress username avatar totalVotes totalTokens availableVotes solBalance level');
 
     const total = await User.countDocuments();
 
     return NextResponse.json({
       success: true,
-      users,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit)
-      }
+      users: users.map(user => ({
+        _id: user._id,
+        walletAddress: user.walletAddress,
+        username: user.username,
+        avatar: user.avatar,
+        totalVotes: user.totalVotes,
+        totalTokens: user.totalTokens,
+        availableVotes: user.availableVotes,
+        solBalance: user.solBalance,
+        level: user.level,
+        achievements: user.achievements
+      })),
+      count: users.length
     });
 
   } catch (error) {

@@ -191,12 +191,9 @@ export default function DailyCheckin() {
           <div className="pixel-card bg-green-900/90 border-green-400 p-6 text-center">
             <Trophy className="w-12 h-12 text-yellow-400 mx-auto mb-3" />
             <div className="text-xl font-pixel text-green-400 mb-2">签到成功！</div>
-            <div className="space-y-1 font-pixel">
-              <div className="text-yellow-400">+{lastReward.votes} 投票票数</div>
-              <div className="text-blue-400">+{lastReward.experience} 经验值</div>
-              <div className="text-gray-300 text-sm">
-                连续签到 {lastReward.consecutiveDays} 天
-              </div>
+            <div className="space-y-2">
+              <div className="text-blue-400">+{lastReward.votes} 票</div>
+              <div className="text-gray-400">连续 {lastReward.consecutiveDays} 天</div>
             </div>
           </div>
         </motion.div>

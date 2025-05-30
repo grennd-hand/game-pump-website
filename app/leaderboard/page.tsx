@@ -2,6 +2,7 @@
 
 import ClientOnly from '@/components/utils/ClientOnly'
 import PageTransition from '@/components/utils/PageTransition'
+import BackToTop from '@/components/ui/BackToTop'
 import { motion } from 'framer-motion'
 import Header from '@/components/layout/Header'
 import EnhancedLeaderboard from '@/components/ui/EnhancedLeaderboard'
@@ -168,6 +169,7 @@ function LeaderboardContent() {
           </div>
         </div>
         </motion.footer>
+        <BackToTop />
     </PageTransition>
   )
 } 

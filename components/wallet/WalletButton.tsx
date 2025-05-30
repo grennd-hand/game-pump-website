@@ -5,7 +5,7 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { motion } from 'framer-motion';
 import { Wallet, ChevronDown, Copy, ExternalLink, LogOut, Trophy, Vote } from 'lucide-react';
-import { useWalletConnect } from '@/hooks/useWalletConnect';
+import { useUser } from '@/contexts/UserContext';
 import { quickHideErrors, suppressAllErrors } from '@/utils/errorSuppressor';
 
 interface WalletButtonProps {
@@ -15,14 +15,14 @@ interface WalletButtonProps {
 export function WalletButton({ lang }: WalletButtonProps) {
   const { wallet, connect, disconnect, publicKey, connected } = useWallet();
   const { setVisible } = useWalletModal();
-  const { user, loading: userLoading, refreshUser, connectUser } = useWalletConnect();
+  const { user, loading: userLoading, refetch: refreshUser } = useUser();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [newUsername, setNewUsername] = useState('');
   const [isUpdatingUsername, setIsUpdatingUsername] = useState(false);
 
-  // 监听钱包连接状态，自动获取用户数据
+  // 监听钱包连接状态，UserContext会自动处理用户数据获取
   React.useEffect(() => {
     console.log('🔍 WalletButton状态检查:', {
       connected,
@@ -32,13 +32,7 @@ export function WalletButton({ lang }: WalletButtonProps) {
       userBalance: user?.solBalance,
       walletName: wallet?.adapter.name
     });
-    
-    // 只在钱包刚连接且没有用户数据时尝试一次
-    if (connected && publicKey && !user && !userLoading) {
-      console.log('🔗 钱包已连接，自动获取用户数据...');
-      connectUser();
-    }
-  }, [connected, publicKey]); // 移除依赖，避免无限循环
+  }, [connected, publicKey, user, userLoading]); // 移除依赖避免无限循环
 
   // 监听钱包选择状态，自动连接
   React.useEffect(() => {
@@ -144,13 +138,45 @@ export function WalletButton({ lang }: WalletButtonProps) {
         setIsEditingUsername(false);
         setNewUsername('');
         console.log('✅ 用户名更新成功:', result.message);
+        
+        // 显示成功提示
+        if ((window as any).addToast) {
+          (window as any).addToast({
+            type: 'success',
+            title: '✅ 更新成功',
+            message: '用户名已更新',
+            duration: 3000
+          });
+        }
       } else {
         console.error('❌ 用户名更新失败:', result.error);
+        
+        // 显示错误提示
+        if ((window as any).addToast) {
+          (window as any).addToast({
+            type: 'error',
+            title: '❌ 更新失败',
+            message: result.error,
+            duration: 5000
+          });
+        } else {
         alert(result.error);
+        }
       }
     } catch (error) {
       console.error('❌ 更新用户名请求失败:', error);
+      
+      // 显示网络错误提示
+      if ((window as any).addToast) {
+        (window as any).addToast({
+          type: 'error',
+          title: '❌ 网络错误',
+          message: '更新失败，请检查网络连接后重试',
+          duration: 5000
+        });
+      } else {
       alert('更新失败，请重试');
+      }
     } finally {
       setIsUpdatingUsername(false);
     }
@@ -169,8 +195,17 @@ export function WalletButton({ lang }: WalletButtonProps) {
   };
 
   const handleConnect = async () => {
+    // 添加调试日志
+    console.log('🔗 handleConnect 被调用');
+    console.log('🔗 useWalletModal hook:', { setVisible: typeof setVisible });
+    
+    try {
     // 始终打开钱包选择模态框，让用户选择要连接的钱包
     setVisible(true);
+      console.log('✅ setVisible(true) 调用成功');
+    } catch (error) {
+      console.error('❌ setVisible 调用失败:', error);
+    }
   };
 
   if (connected && publicKey) {
@@ -204,6 +239,57 @@ export function WalletButton({ lang }: WalletButtonProps) {
               <div className="text-xs text-gray-400 font-mono break-all mb-3">
                 {publicKey.toString()}
               </div>
+
+              {/* 用户名显示/编辑 */}
+              {user && (
+                <div className="mb-3">
+                  {!isEditingUsername ? (
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-xs text-gray-400">用户名:</span>
+                        <div className="text-sm text-white font-mono">{user.username}</div>
+                      </div>
+                      <button
+                        onClick={startEditUsername}
+                        className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                      >
+                        ✏️ 编辑
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <span className="text-xs text-gray-400">编辑用户名:</span>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={newUsername}
+                          onChange={(e) => setNewUsername(e.target.value)}
+                          className="flex-1 px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:border-green-400 focus:outline-none"
+                          placeholder="输入新用户名..."
+                          maxLength={20}
+                          disabled={isUpdatingUsername}
+                        />
+                      </div>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={updateUsername}
+                          disabled={isUpdatingUsername || !newUsername.trim()}
+                          className="px-2 py-1 text-xs bg-green-600 hover:bg-green-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded transition-colors"
+                        >
+                          {isUpdatingUsername ? '保存中...' : '保存'}
+                        </button>
+                        <button
+                          onClick={cancelEditUsername}
+                          disabled={isUpdatingUsername}
+                          className="px-2 py-1 text-xs bg-gray-600 hover:bg-gray-500 disabled:cursor-not-allowed text-white rounded transition-colors"
+                        >
+                          取消
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
               
               {/* 刷新按钮 */}
               <button
@@ -217,76 +303,32 @@ export function WalletButton({ lang }: WalletButtonProps) {
               </button>
               
               {/* 用户统计信息 */}
-              {user && !userLoading && (
-                <div className="space-y-1 text-xs">
-                  {/* 用户名显示和编辑 */}
-                  <div className="mb-3 p-2 bg-gray-800 rounded">
-                    {isEditingUsername ? (
-                      <div className="space-y-2">
-                        <input
-                          type="text"
-                          value={newUsername}
-                          onChange={(e) => setNewUsername(e.target.value)}
-                          placeholder="输入新用户名..."
-                          className="w-full bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600 focus:border-blue-400 focus:outline-none"
-                          disabled={isUpdatingUsername}
-                          maxLength={20}
-                          onKeyPress={(e) => {
-                            if (e.key === 'Enter') {
-                              updateUsername();
-                            } else if (e.key === 'Escape') {
-                              cancelEditUsername();
-                            }
-                          }}
-                        />
-                        <div className="flex gap-1">
-                          <button
-                            onClick={updateUsername}
-                            disabled={isUpdatingUsername || !newUsername.trim()}
-                            className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white text-xs py-1 px-2 rounded transition-colors"
-                          >
-                            {isUpdatingUsername ? '更新中...' : '确认'}
-                          </button>
-                          <button
-                            onClick={cancelEditUsername}
-                            disabled={isUpdatingUsername}
-                            className="flex-1 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-500 text-white text-xs py-1 px-2 rounded transition-colors"
-                          >
-                            取消
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="text-gray-400">用户名</div>
-                          <div className="text-white font-mono">
-                            {user.username || `Player_${publicKey.toString().slice(-6)}`}
-                          </div>
-                        </div>
-                        <button
-                          onClick={startEditUsername}
-                          className="text-blue-400 hover:text-blue-300 text-xs"
-                          title="编辑用户名"
-                        >
-                          ✏️
-                        </button>
-                      </div>
-                    )}
+              {user && (
+                <div className="space-y-2 mb-3">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-400">可用票数:</span>
+                    <span className="text-green-400 font-bold">{user.availableVotes || 0}</span>
                   </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <span className="text-green-400">余额</span>
-                    <span className="text-green-400 font-mono">{user.solBalance?.toFixed(4) || '0.0000'} SOL</span>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-400">SOL余额:</span>
+                    <span className="text-yellow-400 font-bold">{(user.solBalance || 0).toFixed(4)}</span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-blue-400">可用投票</span>
-                    <span className="text-blue-400">{user.availableVotes || 0}</span>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-400">总投票:</span>
+                    <span className="text-blue-400 font-bold">{user.totalVotes || 0}</span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-yellow-400">等级</span>
-                    <span className="text-yellow-400">Lv.{user.level}</span>
+                  {user.dailyCheckin && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-400">连续签到:</span>
+                      <span className="text-orange-400 font-bold">{user.dailyCheckin.consecutiveDays || 0}天</span>
                   </div>
+                  )}
+                  {user.inviteRewards && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-400">邀请奖励:</span>
+                      <span className="text-purple-400 font-bold">{user.inviteRewards.totalRewards || 0}</span>
+                  </div>
+                  )}
                 </div>
               )}
             </div>

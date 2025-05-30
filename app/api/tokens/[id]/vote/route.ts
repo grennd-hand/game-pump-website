@@ -46,7 +46,7 @@ export async function POST(
     await User.findOneAndUpdate(
       { walletAddress },
       { 
-        $inc: { totalVotes: 1, experience: 10 },
+        $inc: { totalVotes: 1 },
         lastActive: new Date()
       }
     );
@@ -109,7 +109,7 @@ export async function DELETE(
     await User.findOneAndUpdate(
       { walletAddress },
       { 
-        $inc: { totalVotes: -1, experience: -10 },
+        $inc: { totalVotes: -1 },
         lastActive: new Date()
       }
     );

@@ -73,15 +73,37 @@ body {
 }
 
 .neon-button:hover {
-  background: currentColor;
-  color: #000000 !important;
-  box-shadow: 
-    0 0 20px currentColor,
-    0 0 40px currentColor,
-    inset 0 0 20px rgba(0,0,0,0.1);
   text-shadow: none;
   font-weight: 900;
   transform: translateY(-2px);
+}
+
+/* 为不同颜色的按钮设置具体的背景色和文字颜色 */
+.neon-button.text-retro-green:hover {
+  background: #00FF00 !important;
+  color: #000000 !important;
+}
+
+.neon-button.text-retro-cyan:hover {
+  background: #00FFFF !important;
+  color: #000000 !important;
+}
+
+.neon-button.text-retro-yellow:hover {
+  background: #FFFF00 !important;
+  color: #000000 !important;
+}
+
+.neon-button.text-retro-magenta:hover {
+  background: #FF00FF !important;
+  color: #ffffff !important;
+}
+
+/* 为灰色按钮设置白色文字 */
+.neon-button.text-gray-500:hover,
+.neon-button.border-gray-600:hover {
+  background: #6b7280 !important;
+  color: #ffffff !important;
 }
 
 .neon-button::before {
@@ -367,6 +389,7 @@ body.transitioning-leaderboard {
 /* 深色背景增强 */
 .dark-bg {
   background: rgba(0, 0, 0, 0.95);
+  -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
 }
 
@@ -423,3 +446,134 @@ body.transitioning-leaderboard {
 }
 
 /* 钱包样式已在 wallet-override.css 中定义 */
+
+/* 自定义动画 */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(168, 85, 247, 0.3); }
+  50% { box-shadow: 0 0 30px rgba(168, 85, 247, 0.6); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+/* 自定义样式类 */
+.task-card {
+  background: linear-gradient(145deg, rgba(0,0,0,0.6) 0%, rgba(30,30,30,0.6) 100%);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.1);
+  transition: all 0.3s ease;
+}
+
+.task-card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(168, 85, 247, 0.5);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+}
+
+.glass-effect {
+  background: rgba(255, 255, 255, 0.05);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.gradient-text {
+  background: linear-gradient(45deg, #a855f7, #ec4899, #06b6d4);
+  background-size: 200% 200%;
+  animation: shimmer 3s ease-in-out infinite;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.floating {
+  animation: float 3s ease-in-out infinite;
+}
+
+.glow-box {
+  animation: glow 2s ease-in-out infinite;
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0,0,0,0.1);
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(45deg, #a855f7, #ec4899);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(45deg, #9333ea, #db2777);
+}
+
+/* 按钮悬停效果 */
+.btn-gradient {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(45deg, #a855f7, #ec4899);
+  transition: all 0.3s ease;
+}
+
+.btn-gradient::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  transition: left 0.5s;
+}
+
+.btn-gradient:hover::before {
+  left: 100%;
+}
+
+/* 卡片悬停效果 */
+.card-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-hover:hover {
+  transform: translateY(-8px) scale(1.02);
+}
+
+/* 渐变边框 */
+.gradient-border {
+  position: relative;
+  background: linear-gradient(45deg, #a855f7, #ec4899, #06b6d4, #10b981);
+  background-size: 400% 400%;
+  animation: shimmer 4s ease infinite;
+  border-radius: 1.5rem;
+}
+
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  background: rgba(0,0,0,0.8);
+  border-radius: inherit;
+  z-index: -1;
+}
+
+/* 确保回到顶部按钮始终固定在正确位置 */
+.back-to-top-button {
+  position: fixed !important;
+  bottom: 2rem !important;
+  right: 2rem !important;
+  z-index: 9999 !important;
+}

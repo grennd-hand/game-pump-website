@@ -4,9 +4,13 @@ require('dotenv').config({ path: '.env.local' });
 // 连接MongoDB
 async function connectDB() {
   try {
-    const mongoUri = process.env.MONGODB_URI || 'mongodb+srv://xiaomi:Csm20050615@cluster0.twbyzws.mongodb.net/test?retryWrites=true&w=majority&appName=Cluster0';
+    const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/game-pump-local';
     await mongoose.connect(mongoUri);
     console.log('✅ MongoDB 连接成功');
+
+    // 清理现有投票轮次
+    await mongoose.connection.dropCollection('votingrounds');
+
   } catch (error) {
     console.error('❌ MongoDB 连接失败:', error);
     process.exit(1);
@@ -491,20 +495,13 @@ async function initVotingRound() {
   try {
     await connectDB();
 
-    // 检查是否已存在投票轮次
-    const existingRound = await VotingRound.findOne({ roundNumber: 1 });
-    if (existingRound) {
-      console.log('⚠️  投票轮次已存在，跳过初始化');
-      return;
-    }
-
     // 创建新的投票轮次
     const startDate = new Date();
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + 7); // 7天后结束
 
     const votingRound = new VotingRound({
-      roundNumber: 1,
+      roundNumber: 2,
       title: "经典游戏投票 - 第一轮",
       description: "为你最喜爱的经典游戏投票，获胜游戏将获得专属meme代币发射！",
       games: classicGames,

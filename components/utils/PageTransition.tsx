@@ -332,7 +332,6 @@ export default function PageTransition({ children, pageKey }: PageTransitionProp
             variants={animations.variants}
             transition={animations.transition}
             className="min-h-screen"
-            style={{ perspective: '1000px' }}
           >
             <motion.div
               initial="initial"

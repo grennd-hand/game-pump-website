@@ -2,21 +2,27 @@ import { useState, useEffect } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 
 interface User {
-  id: string;
+  _id: string;
   walletAddress: string;
-  username: string;
+  username?: string;
   avatar?: string;
   totalVotes: number;
   totalTokens: number;
+  availableVotes: number;
+  solBalance?: number;
   level: number;
-  experience: number;
   achievements: string[];
-  preferences: {
-    language: 'en' | 'zh' | 'ja' | 'ko';
-    notifications: boolean;
-  };
   joinedAt: string;
   lastActive: string;
+  dailyCheckin: {
+    lastCheckinDate?: string;
+    consecutiveDays: number;
+    totalCheckins: number;
+  };
+  inviteRewards: {
+    totalInvites: number;
+    totalRewards: number;
+  };
 }
 
 export function useUser() {

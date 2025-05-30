@@ -1,27 +1,31 @@
- 'use client'
+'use client'
 
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { useWallet, useConnection } from '@solana/wallet-adapter-react'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 
-interface User {
-  id: string
-  walletAddress: string
-  username: string
-  avatar?: string
-  totalVotes: number
-  totalTokens: number
-  availableVotes: number
-  solBalance: number
-  level: number
-  experience: number
-  achievements: string[]
-  preferences: {
-    language: 'en' | 'zh' | 'ja' | 'ko'
-    notifications: boolean
-  }
-  joinedAt: string
-  lastActive: string
+export interface User {
+  _id: string;
+  walletAddress: string;
+  username?: string;
+  avatar?: string;
+  totalVotes: number;
+  totalTokens: number;
+  availableVotes: number;
+  solBalance?: number;
+  joinedAt: string;
+  lastActive: string;
+  level: number;
+  achievements: string[];
+  dailyCheckin: {
+    lastCheckinDate?: string;
+    consecutiveDays: number;
+    totalCheckins: number;
+  };
+  inviteRewards: {
+    totalInvites: number;
+    totalRewards: number;
+  };
 }
 
 interface UserContextType {
